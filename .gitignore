@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+engine/__pycache__/
+engine/**/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build output
+dist/
+release/
+
+# Data (user data, not tracked)
+data/
+*.db
+*.db-journal
+
+# Generated documents
+data/generated/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Electron
+*.asar
+
+# Turbo
+.turbo/
+
+# React Native / Mobile
+apps/mobile/android/app/build/
+apps/mobile/android/.gradle/
+apps/mobile/ios/build/
+apps/mobile/ios/Pods/
+apps/mobile/.expo/
+
+# Credentials (never commit)
+credentials.json
+token.json
+*.pem
+*.key
+
+# Misc
+nul

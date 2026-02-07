@@ -1,0 +1,8 @@
+{
+  "name": "Formal Greeting",
+  "category": "greeting",
+  "channel": "email",
+  "tone": "formal",
+  "subject": "Greetings from {{ sender.company }}",
+  "body": "Dear {{ name }},\n\nI hope this message finds you well.\n\nI wanted to take a moment to extend my warmest greetings to you and your team at {{ company }}.\n\nPlease do not hesitate to reach out if there is anything I can assist you with.\n\nBest regards,\n{{ sender.name }}\n{{ sender.title }}"
+}
