@@ -1,0 +1,233 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables for theming - Controlled light/dark mode */
+:root {
+  /* Primary colors */
+  --color-primary: #3b82f6;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+
+  /* Primary color tints (color-mix doesn't work with Tailwind opacity modifier) */
+  --primary-tint-10: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  --primary-tint-15: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  --primary-tint-20: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  --primary-tint-30: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  --primary-tint-40: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  --primary-tint-50: color-mix(in srgb, var(--color-primary) 50%, transparent);
+
+  /* Background colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --bg-elevated: #ffffff;
+
+  /* Text colors */
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --text-muted: #d1d5db;
+
+  /* Border colors */
+  --border-primary: #e5e7eb;
+  --border-secondary: #f3f4f6;
+
+  /* Surface colors */
+  --surface-hover: #f9fafb;
+  --surface-active: #f3f4f6;
+
+  /* Typography */
+  --base-font-size: 16px;
+  --transition-duration: 200ms;
+}
+
+/* Dark mode overrides */
+.dark {
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --bg-elevated: #1f2937;
+
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+  --text-muted: #4b5563;
+
+  --border-primary: #374151;
+  --border-secondary: #1f2937;
+
+  --surface-hover: #1f2937;
+  --surface-active: #374151;
+}
+
+/* Custom styles */
+@layer base {
+  html {
+    transition: font-size var(--transition-duration) ease;
+  }
+
+  body {
+    @apply text-gray-900 dark:text-gray-100;
+  }
+
+  /* Reduced motion preference */
+  .reduce-motion,
+  .reduce-motion * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Compact mode - using CSS values to avoid circular @apply */
+.compact .p-8 {
+  padding: 1.25rem;
+}
+
+.compact .p-6 {
+  padding: 1rem;
+}
+
+.compact .p-4 {
+  padding: 0.75rem;
+}
+
+.compact .mb-8 {
+  margin-bottom: 1.25rem;
+}
+
+.compact .mb-6 {
+  margin-bottom: 1rem;
+}
+
+.compact .gap-6 {
+  gap: 1rem;
+}
+
+.compact .gap-4 {
+  gap: 0.75rem;
+}
+
+.compact .space-y-6 > * + * {
+  margin-top: 1rem;
+}
+
+.compact .space-y-4 > * + * {
+  margin-top: 0.75rem;
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 active:bg-gray-400;
+    @apply dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700 active:bg-red-800;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200;
+    @apply dark:bg-gray-800 dark:border-gray-700;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors;
+    @apply text-gray-700 hover:bg-gray-100;
+    @apply dark:text-gray-300 dark:hover:bg-gray-700;
+  }
+
+  .sidebar-item.active {
+    @apply bg-primary-50 text-primary-700;
+    @apply dark:text-primary-400;
+  }
+}
+
+/* Dark mode sidebar active background */
+.dark .sidebar-item.active {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+
+/* Dark mode — ensure tables inherit dark backgrounds from their parent */
+.dark table,
+.dark thead,
+.dark tbody,
+.dark tr {
+  background-color: inherit;
+}
+
+/* Dark mode form input styling */
+.dark input[type="date"],
+.dark input[type="time"],
+.dark input[type="datetime-local"],
+.dark input[type="number"],
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark textarea,
+.dark select {
+  color: #f9fafb;
+  color-scheme: dark;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #6b7280;
+}
+
+/* Fix for date/time picker icons in dark mode */
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+/* Select dropdown arrow in dark mode */
+.dark select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}

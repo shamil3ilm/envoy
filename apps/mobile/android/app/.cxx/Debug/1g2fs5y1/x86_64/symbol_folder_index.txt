@@ -1,0 +1,1 @@
+C:\laragon\www\assist\apps\mobile\android\app\build\intermediates\cxx\Debug\1g2fs5y1\obj\x86_64

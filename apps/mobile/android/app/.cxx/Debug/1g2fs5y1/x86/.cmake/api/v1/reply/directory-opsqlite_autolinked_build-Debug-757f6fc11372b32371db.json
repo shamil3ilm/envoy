@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "opsqlite_autolinked_build",
+		"source" : "C:/laragon/www/assist/node_modules/@op-engineering/op-sqlite/android/build/generated/source/codegen/jni"
+	}
+}

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm;
+        }
+        body {
+            font-family: 'Georgia', serif;
+            font-size: 12pt;
+            line-height: 1.6;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2cm;
+            border-bottom: 2px solid #333;
+            padding-bottom: 1cm;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 18pt;
+            color: #1a1a1a;
+        }
+        .header p {
+            margin: 0.5em 0 0;
+            font-size: 10pt;
+            color: #666;
+        }
+        .date {
+            text-align: right;
+            margin-bottom: 1cm;
+        }
+        .recipient {
+            margin-bottom: 1cm;
+        }
+        .recipient p {
+            margin: 0;
+        }
+        .salutation {
+            margin-bottom: 1cm;
+        }
+        .body p {
+            margin-bottom: 1em;
+            text-align: justify;
+        }
+        .closing {
+            margin-top: 2cm;
+        }
+        .signature {
+            margin-top: 2cm;
+        }
+        .signature .name {
+            font-weight: bold;
+        }
+        .footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 9pt;
+            color: #999;
+            border-top: 1px solid #ddd;
+            padding-top: 0.5cm;
+        }
+    </style>
+</head>
+<body>
+    {% if header %}
+    <div class="header">
+        <h1>{{ header.company_name | default('Company Name') }}</h1>
+        {% if header.address %}
+        <p>{{ header.address }}</p>
+        {% endif %}
+        {% if header.contact %}
+        <p>{{ header.contact }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="date">
+        {{ today | format_date('%B %d, %Y') }}
+    </div>
+
+    {% if recipient %}
+    <div class="recipient">
+        <p><strong>{{ recipient.name }}</strong></p>
+        {% if recipient.title %}
+        <p>{{ recipient.title }}</p>
+        {% endif %}
+        {% if recipient.company %}
+        <p>{{ recipient.company }}</p>
+        {% endif %}
+        {% if recipient.address %}
+        <p>{{ recipient.address }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="salutation">
+        {{ salutation | default('Dear ' ~ (recipient.name | first_name) ~ ',') }}
+    </div>
+
+    <div class="body">
+        {% for paragraph in body.split('\n\n') %}
+        <p>{{ paragraph }}</p>
+        {% endfor %}
+    </div>
+
+    <div class="closing">
+        {{ closing | default('Sincerely,') }}
+    </div>
+
+    <div class="signature">
+        {% if sender %}
+        <p class="name">{{ sender.name }}</p>
+        {% if sender.title %}
+        <p>{{ sender.title }}</p>
+        {% endif %}
+        {% if sender.company %}
+        <p>{{ sender.company }}</p>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    {% if footer %}
+    <div class="footer">
+        {{ footer }}
+    </div>
+    {% endif %}
+</body>
+</html>

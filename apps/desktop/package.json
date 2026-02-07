@@ -1,0 +1,116 @@
+{
+  "name": "@envoy/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Envoy Desktop App",
+  "author": "Mohamed Shamil",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev:main": "tsc -p tsconfig.main.json --watch",
+    "dev:renderer": "vite",
+    "build": "npm run build:main && npm run build:renderer",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "vite build",
+    "start": "node scripts/launch-electron.js",
+    "electron": "npm run build:main && npm run start",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "postinstall": "cd ../.. && npx electron-builder install-app-deps --project apps/desktop",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@envoy/shared": "*",
+    "@envoy/database-core": "*",
+    "@azure/msal-node": "^5.0.3",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@tiptap/extension-color": "^3.19.0",
+    "@tiptap/extension-font-family": "^3.19.0",
+    "@tiptap/extension-highlight": "^3.19.0",
+    "@tiptap/extension-image": "^3.19.0",
+    "@tiptap/extension-placeholder": "^3.19.0",
+    "@tiptap/extension-table": "^3.19.0",
+    "@tiptap/extension-table-cell": "^3.19.0",
+    "@tiptap/extension-table-header": "^3.19.0",
+    "@tiptap/extension-table-row": "^3.19.0",
+    "@tiptap/extension-text-align": "^3.19.0",
+    "@tiptap/extension-text-style": "^3.19.0",
+    "@tiptap/extension-underline": "^3.19.0",
+    "@tiptap/pm": "^3.19.0",
+    "@tiptap/react": "^3.19.0",
+    "@tiptap/starter-kit": "^3.19.0",
+    "better-sqlite3": "^9.4.3",
+    "date-fns": "^3.3.1",
+    "date-fns-tz": "^3.0.0",
+    "electron-store": "^8.1.0",
+    "googleapis": "^130.0.0",
+    "mysql2": "^3.9.1",
+    "nodemailer": "^6.9.9",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
+    "@types/better-sqlite3": "^7.6.9",
+    "@types/node": "^20.11.16",
+    "@types/nodemailer": "^6.4.14",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "@types/uuid": "^9.0.8",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
+    "electron": "28.3.3",
+    "electron-builder": "^24.9.1",
+    "lucide-react": "^0.323.0",
+    "postcss": "^8.4.35",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.1",
+    "zustand": "^4.5.0"
+  },
+  "build": {
+    "appId": "com.envoy.app",
+    "productName": "Envoy",
+    "icon": "resources/icon",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "engine/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "engine",
+        "to": "engine"
+      },
+      {
+        "from": "resources",
+        "to": "resources"
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "mac": {
+      "target": ["dmg", "zip"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

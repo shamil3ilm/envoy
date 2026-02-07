@@ -1,0 +1,97 @@
+{
+  "buildFiles": [
+    "C:\\laragon\\www\\assist\\node_modules\\@op-engineering\\op-sqlite\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "C:\\laragon\\www\\assist\\node_modules\\react-native-gesture-handler\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "C:\\laragon\\www\\assist\\node_modules\\react-native-image-picker\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "C:\\laragon\\www\\assist\\node_modules\\react-native-reanimated\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "C:\\laragon\\www\\assist\\node_modules\\react-native-safe-area-context\\android\\src\\main\\jni\\CMakeLists.txt",
+    "C:\\laragon\\www\\assist\\node_modules\\react-native-screens\\android\\src\\main\\jni\\CMakeLists.txt",
+    "C:\\laragon\\www\\assist\\node_modules\\react-native-svg\\android\\src\\main\\jni\\CMakeLists.txt",
+    "C:\\laragon\\www\\assist\\node_modules\\react-native-worklets\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "C:\\laragon\\www\\assist\\node_modules\\react-native\\ReactAndroid\\cmake-utils\\default-app-setup\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "C:\\Users\\Shamil\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "C:\\laragon\\www\\assist\\apps\\mobile\\android\\app\\.cxx\\Debug\\1g2fs5y1\\armeabi-v7a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "C:\\Users\\Shamil\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "C:\\laragon\\www\\assist\\apps\\mobile\\android\\app\\.cxx\\Debug\\1g2fs5y1\\armeabi-v7a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "react_codegen_opsqlite::@29dbe4a8d7c7d52648b7": {
+      "artifactName": "react_codegen_opsqlite",
+      "abi": "armeabi-v7a",
+      "runtimeFiles": []
+    },
+    "react_codegen_rnreanimated::@8afabad14bfffa3f8b9a": {
+      "artifactName": "react_codegen_rnreanimated",
+      "abi": "armeabi-v7a",
+      "runtimeFiles": []
+    },
+    "react_codegen_safeareacontext::@7984cd80db47aa7b952a": {
+      "artifactName": "react_codegen_safeareacontext",
+      "abi": "armeabi-v7a",
+      "output": "C:\\laragon\\www\\assist\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g2fs5y1\\obj\\armeabi-v7a\\libreact_codegen_safeareacontext.so",
+      "runtimeFiles": [
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\cb9318f0ccfabbf3208ac9b31200f3ea\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.armeabi-v7a\\libfbjni.so",
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\47fb9edc8933ded40eef486c4c003415\\transformed\\react-android-0.83.1-debug\\prefab\\modules\\jsi\\libs\\android.armeabi-v7a\\libjsi.so",
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\47fb9edc8933ded40eef486c4c003415\\transformed\\react-android-0.83.1-debug\\prefab\\modules\\reactnative\\libs\\android.armeabi-v7a\\libreactnative.so"
+      ]
+    },
+    "react_codegen_rngesturehandler_codegen::@39f233abcd2c728bc6ec": {
+      "artifactName": "react_codegen_rngesturehandler_codegen",
+      "abi": "armeabi-v7a",
+      "runtimeFiles": []
+    },
+    "react_codegen_RNImagePickerSpec::@f66ee9a2efecfb28bee4": {
+      "artifactName": "react_codegen_RNImagePickerSpec",
+      "abi": "armeabi-v7a",
+      "runtimeFiles": []
+    },
+    "react_codegen_rnscreens::@25bcbd507e98d3a854ad": {
+      "artifactName": "react_codegen_rnscreens",
+      "abi": "armeabi-v7a",
+      "output": "C:\\laragon\\www\\assist\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g2fs5y1\\obj\\armeabi-v7a\\libreact_codegen_rnscreens.so",
+      "runtimeFiles": [
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\47fb9edc8933ded40eef486c4c003415\\transformed\\react-android-0.83.1-debug\\prefab\\modules\\reactnative\\libs\\android.armeabi-v7a\\libreactnative.so",
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\47fb9edc8933ded40eef486c4c003415\\transformed\\react-android-0.83.1-debug\\prefab\\modules\\jsi\\libs\\android.armeabi-v7a\\libjsi.so",
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\cb9318f0ccfabbf3208ac9b31200f3ea\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.armeabi-v7a\\libfbjni.so"
+      ]
+    },
+    "appmodules::@6890427a1f51a3e7e1df": {
+      "artifactName": "appmodules",
+      "abi": "armeabi-v7a",
+      "output": "C:\\laragon\\www\\assist\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g2fs5y1\\obj\\armeabi-v7a\\libappmodules.so",
+      "runtimeFiles": [
+        "C:\\laragon\\www\\assist\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g2fs5y1\\obj\\armeabi-v7a\\libreact_codegen_rnscreens.so",
+        "C:\\laragon\\www\\assist\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g2fs5y1\\obj\\armeabi-v7a\\libreact_codegen_safeareacontext.so",
+        "C:\\laragon\\www\\assist\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g2fs5y1\\obj\\armeabi-v7a\\libreact_codegen_rnsvg.so",
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\cb9318f0ccfabbf3208ac9b31200f3ea\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.armeabi-v7a\\libfbjni.so",
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\47fb9edc8933ded40eef486c4c003415\\transformed\\react-android-0.83.1-debug\\prefab\\modules\\jsi\\libs\\android.armeabi-v7a\\libjsi.so",
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\47fb9edc8933ded40eef486c4c003415\\transformed\\react-android-0.83.1-debug\\prefab\\modules\\reactnative\\libs\\android.armeabi-v7a\\libreactnative.so"
+      ]
+    },
+    "react_codegen_rnsvg::@4f40eb209d0c0b4a3b65": {
+      "artifactName": "react_codegen_rnsvg",
+      "abi": "armeabi-v7a",
+      "output": "C:\\laragon\\www\\assist\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g2fs5y1\\obj\\armeabi-v7a\\libreact_codegen_rnsvg.so",
+      "runtimeFiles": [
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\47fb9edc8933ded40eef486c4c003415\\transformed\\react-android-0.83.1-debug\\prefab\\modules\\reactnative\\libs\\android.armeabi-v7a\\libreactnative.so",
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\47fb9edc8933ded40eef486c4c003415\\transformed\\react-android-0.83.1-debug\\prefab\\modules\\jsi\\libs\\android.armeabi-v7a\\libjsi.so",
+        "C:\\Users\\Shamil\\.gradle\\caches\\8.13\\transforms\\cb9318f0ccfabbf3208ac9b31200f3ea\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.armeabi-v7a\\libfbjni.so"
+      ]
+    },
+    "react_codegen_rnworklets::@68f58d84d4754f193387": {
+      "artifactName": "react_codegen_rnworklets",
+      "abi": "armeabi-v7a",
+      "runtimeFiles": []
+    }
+  }
+}
