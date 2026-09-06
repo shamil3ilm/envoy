@@ -1,15 +1,20 @@
 import React, { useState, useCallback } from 'react';
 import {
+  Alert,
   View,
   Text,
   ScrollView,
+  Share,
   StyleSheet,
   TouchableOpacity,
   Switch,
   Vibration,
   Platform,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useSettings } from '../contexts/SettingsContext';
+import { useDatabase, useDatabaseReady } from '../contexts/DatabaseContext';
+import { collectMobileBackup } from '../services/BackupService';
 import type {
   NotificationSoundType,
   NotificationSound,
@@ -51,7 +56,40 @@ type SettingsSection = 'notifications' | 'vibration';
 
 export default function SettingsScreen() {
   const { settings, updatePreferences } = useSettings();
+  const db = useDatabase();
+  const ready = useDatabaseReady();
   const [expandedSection, setExpandedSection] = useState<SettingsSection | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const exportBackup = useCallback(async () => {
+    if (!ready || !db) {
+      Alert.alert('Database not ready yet');
+      return;
+    }
+    setExporting(true);
+    try {
+      const envelope = await collectMobileBackup(db, '1.0.0');
+      const json = JSON.stringify(envelope, null, 2);
+      const total = Object.values(envelope.counts).reduce((sum, n) => sum + n, 0);
+      await Share.share(
+        {
+          title: 'Envoy backup',
+          message: json,
+        },
+        { subject: `envoy-backup-${envelope.exportedAt.slice(0, 10)}.json` }
+      );
+      Toast.show({
+        type: 'success',
+        text1: `Exported ${total} records`,
+        text2: 'Save the JSON somewhere safe.',
+      });
+    } catch (err) {
+      console.error('Export backup failed', err);
+      Alert.alert('Could not export data');
+    } finally {
+      setExporting(false);
+    }
+  }, [db, ready]);
 
   const toggleSection = useCallback((section: SettingsSection) => {
     setExpandedSection(prev => prev === section ? null : section);
@@ -248,6 +286,36 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        {/* Data & Backup Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
+              <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
+                <Text style={styles.iconEmoji}>💾</Text>
+              </View>
+              <View style={styles.sectionHeaderText}>
+                <Text style={styles.sectionTitle}>Data & Backup</Text>
+                <Text style={styles.sectionSubtitle}>Export a JSON snapshot of your data</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.sectionContent}>
+            <TouchableOpacity
+              style={[styles.exportButton, exporting && styles.exportButtonDisabled]}
+              onPress={exportBackup}
+              disabled={exporting}
+            >
+              <Text style={styles.exportButtonText}>
+                {exporting ? 'Exporting…' : 'Export data'}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.exportHint}>
+              Uses the system share sheet — send the JSON to iCloud Drive, Google Drive,
+              email, or a messaging app. Email account credentials are not included.
+            </Text>
+          </View>
+        </View>
+
         {/* Version Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Envoy Mobile v1.0.0</Text>
@@ -406,6 +474,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  exportButton: {
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#10b981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportButtonDisabled: {
+    backgroundColor: '#a7f3d0',
+  },
+  exportButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  exportHint: {
+    marginTop: 8,
+    fontSize: 11,
+    color: '#6b7280',
+    lineHeight: 15,
   },
   footer: {
     alignItems: 'center',
