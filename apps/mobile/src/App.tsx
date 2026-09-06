@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { RootNavigator } from './navigation/RootNavigator';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { DatabaseProvider } from './contexts/DatabaseContext';
 import './sentry';
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
@@ -38,9 +39,11 @@ export default function App() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
           <SettingsProvider>
-            <NavigationContainer>
-              <RootNavigator />
-            </NavigationContainer>
+            <DatabaseProvider>
+              <NavigationContainer>
+                <RootNavigator />
+              </NavigationContainer>
+            </DatabaseProvider>
           </SettingsProvider>
           <Toast />
         </SafeAreaProvider>
