@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 
 const { appMock, shellMock } = vi.hoisted(() => ({
-  appMock: { getPath: vi.fn() },
+  appMock: { getPath: vi.fn(), getVersion: vi.fn(() => '1.0.0-test') },
   shellMock: { openPath: vi.fn(async () => '') },
 }));
 
@@ -15,6 +15,7 @@ vi.mock('./logger', () => ({
 }));
 
 import {
+  collectDebugInfo,
   collectStorageStats,
   openBackupsFolder,
   runDatabaseIntegrityCheck,
@@ -134,5 +135,55 @@ describe('runDatabaseVacuum', () => {
     const result = await runDatabaseVacuum(db as never);
     expect(result.success).toBe(false);
     expect(result.error).toBe('database is locked');
+  });
+});
+
+describe('collectDebugInfo', () => {
+  it('assembles a report with headers, integrity, and log tail', async () => {
+    const db = {
+      checkIntegrity: async () => ({ ok: true, issues: [] }),
+    };
+    // Seed a fake main.log with more lines than the tail (40) to prove trimming.
+    const logsDirPath = path.join(userDataDir, 'logs');
+    fs.mkdirSync(logsDirPath);
+    const logLines: string[] = [];
+    for (let i = 0; i < 100; i++) logLines.push(`line ${i}`);
+    fs.writeFileSync(path.join(logsDirPath, 'main.log'), logLines.join('\n'));
+
+    const text = await collectDebugInfo(db as never);
+    expect(text).toContain('Envoy Debug Info');
+    expect(text).toContain(`Platform: ${process.platform} ${process.arch}`);
+    expect(text).toContain('Integrity: OK');
+    expect(text).toContain('--- log tail (40 lines) ---');
+    // Newest 40 lines should be present, oldest ones dropped.
+    expect(text).toContain('line 99');
+    expect(text).not.toContain('line 0\n');
+  });
+
+  it('reports ISSUES + reason when integrity fails', async () => {
+    const db = {
+      checkIntegrity: async () => ({ ok: false, issues: ['row 3 bad hash'] }),
+    };
+    const text = await collectDebugInfo(db as never);
+    expect(text).toContain('Integrity: ISSUES');
+    expect(text).toContain('row 3 bad hash');
+  });
+
+  it('surfaces a thrown integrity check as a captured error', async () => {
+    const db = {
+      checkIntegrity: async () => {
+        throw new Error('DB locked');
+      },
+    };
+    const text = await collectDebugInfo(db as never);
+    expect(text).toContain('Integrity: ISSUES (DB locked)');
+  });
+
+  it('handles a missing log file gracefully', async () => {
+    const db = {
+      checkIntegrity: async () => ({ ok: true, issues: [] }),
+    };
+    const text = await collectDebugInfo(db as never);
+    expect(text).toContain('(no log file yet)');
   });
 });

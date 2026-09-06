@@ -457,6 +457,36 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       keywords: ['vacuum', 'compact', 'shrink', 'reclaim', 'space', 'diagnostics'],
       section: 'actions',
     },
+    {
+      id: 'action-diagnostics-debug-info',
+      title: 'Copy Debug Info',
+      description: 'Copy a support-ready diagnostic bundle to the clipboard',
+      icon: <Database className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.diagnostics.debugInfo();
+          if (result.success && result.text) {
+            try {
+              await navigator.clipboard.writeText(result.text);
+              // eslint-disable-next-line no-console
+              console.info('Debug info copied to clipboard');
+            } catch {
+              // eslint-disable-next-line no-console
+              console.info(result.text);
+            }
+          } else {
+            // eslint-disable-next-line no-console
+            console.error('Debug info collection failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Debug info collection failed', err);
+        }
+      },
+      keywords: ['debug', 'support', 'copy', 'info', 'diagnostics', 'about'],
+      section: 'actions',
+    },
   ];
 
   const filteredCommands = commands.filter((cmd) => {

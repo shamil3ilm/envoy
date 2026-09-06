@@ -657,6 +657,7 @@ export const IPC_CHANNELS = {
   DIAGNOSTICS_STATS: 'diagnostics:stats',
   DIAGNOSTICS_OPEN_BACKUPS_FOLDER: 'diagnostics:openBackupsFolder',
   DIAGNOSTICS_VACUUM: 'diagnostics:vacuum',
+  DIAGNOSTICS_DEBUG_INFO: 'diagnostics:debugInfo',
 } as const;
 
 // ============================================

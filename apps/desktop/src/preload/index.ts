@@ -554,6 +554,9 @@ const api = {
       sizeAfter?: number;
       error?: string;
     }> => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_VACUUM),
+
+    debugInfo: (): Promise<{ success: boolean; text?: string; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_DEBUG_INFO),
   },
 
   // Automation Rules
