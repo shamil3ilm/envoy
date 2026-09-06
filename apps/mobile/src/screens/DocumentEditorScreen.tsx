@@ -20,6 +20,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { RichDocument, Contact } from '@envoy/shared';
 import { useDatabase, useDatabaseReady } from '../contexts/DatabaseContext';
 import { renderTemplate } from '../services/TemplateEngine';
+import { renderDocumentToPdfBase64, savePdfAndShare } from '../services/MobilePdfService';
 
 type DocumentEditorRoute = RouteProp<
   { DocumentEditor: { documentId?: string } | undefined },
@@ -194,6 +195,35 @@ export default function DocumentEditorScreen() {
     }
   };
 
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const exportPdf = async () => {
+    const body = rendered.text || doc.content;
+    if (!doc.title.trim() && !body.trim()) {
+      Alert.alert('Nothing to export yet');
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      const base64 = await renderDocumentToPdfBase64({
+        title: doc.title,
+        body,
+        pageColor: doc.pageColor,
+      });
+      const filename = doc.title.trim() || `envoy-doc-${Date.now()}`;
+      const path = await savePdfAndShare(base64, filename);
+      Toast.show({
+        type: 'success',
+        text1: 'PDF exported',
+        text2: path,
+      });
+    } catch (err) {
+      console.error('PDF export failed', err);
+      Alert.alert('Could not export PDF', err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const remove = () => {
     if (!documentId) return;
     Alert.alert('Delete this document?', doc.title, [
@@ -241,6 +271,15 @@ export default function DocumentEditorScreen() {
         </View>
         <TouchableOpacity onPress={share} style={styles.toolbarButton}>
           <Text style={styles.toolbarButtonText}>Share</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={exportPdf}
+          disabled={exportingPdf}
+          style={styles.toolbarButton}
+        >
+          <Text style={[styles.toolbarButtonText, exportingPdf && styles.toolbarSaveDisabled]}>
+            {exportingPdf ? 'PDF…' : 'PDF'}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={save} disabled={!dirty || saving} style={styles.toolbarButton}>
           <Text
