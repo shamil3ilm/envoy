@@ -33,6 +33,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
   `@envoy/shared/sanitize` for mobile; desktop keeps inline copies with a
   header comment pointing at the canonical source (main-process tsc
   build's `rootDir: src` refuses out-of-tree resolutions).
+- Desktop **auto-backup scheduler** — opt-in via Ctrl+K → "Enable
+  Auto-Backup (Daily)". Writes a JSON envelope to
+  `userData/backups/auto-<timestamp>.json` on a configurable interval
+  (default 24h) and rotates to the newest N (default 7). Ships with a
+  matching Disable action and an `autoStatus()` IPC surface.
 - CI: GitHub Actions `verify` workflow (typecheck + tests on push/PR to `main`).
 - CI: Dependabot for weekly npm bumps (grouped minor/patch, ignored majors on Electron/RN).
 - CI: PR template with a testing / secret-hygiene / IPC-boundary checklist.
