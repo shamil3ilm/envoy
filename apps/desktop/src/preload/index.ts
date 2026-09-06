@@ -460,6 +460,14 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.RICH_DOC_RENDER_TEMP_PDF, request),
   },
 
+  // Backup & restore
+  backup: {
+    export: (): Promise<
+      | { success: true; path: string; counts: Record<string, number> }
+      | { success: false; cancelled?: boolean; error?: string }
+    > => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_EXPORT),
+  },
+
   // Automation Rules
   rules: {
     create: (input: CreateRuleInput): Promise<AutomationRule> =>

@@ -195,6 +195,34 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       keywords: ['alert', 'notify', 'todo'],
       section: 'actions',
     },
+    {
+      id: 'action-backup-export',
+      title: 'Export All Data',
+      description: 'Save a JSON backup of every entity',
+      icon: <FileText className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.backup.export();
+          if (result.success) {
+            const total = Object.values(result.counts).reduce(
+              (sum, n) => sum + Number(n),
+              0
+            );
+            // eslint-disable-next-line no-console
+            console.info(`Exported ${total} records to ${result.path}`);
+          } else if (!result.cancelled && result.error) {
+            // eslint-disable-next-line no-console
+            console.error('Export failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Backup export failed', err);
+        }
+      },
+      keywords: ['backup', 'export', 'save', 'download', 'json'],
+      section: 'actions',
+    },
   ];
 
   const filteredCommands = commands.filter((cmd) => {

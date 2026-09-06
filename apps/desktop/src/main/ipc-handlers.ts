@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from './services/logger';
 import { buildMailtoUrl, isSafeExternalUrl, isSafeUwpFamilyName, sanitizeEmail } from './services/security';
+import { collectBackup, writeBackupFile } from './services/backup';
 import {
   csvImportPath,
   csvExportPath,
@@ -2043,5 +2044,37 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC_CHANNELS.RULE_LIST, async () => {
     return database.listRules();
+  });
+
+  // ============================================
+  // BACKUP & RESTORE
+  // ============================================
+
+  ipcMain.handle(IPC_CHANNELS.BACKUP_EXPORT, async () => {
+    try {
+      const defaultName = `envoy-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      const result = await dialog.showSaveDialog({
+        title: 'Export Envoy data',
+        defaultPath: defaultName,
+        filters: [{ name: 'Envoy backup', extensions: ['json'] }],
+      });
+      if (result.canceled || !result.filePath) {
+        return { success: false, cancelled: true };
+      }
+
+      const envelope = await collectBackup(database);
+      await writeBackupFile(result.filePath, envelope);
+      return {
+        success: true,
+        path: result.filePath,
+        counts: envelope.counts,
+      };
+    } catch (err) {
+      logger.error('BACKUP_EXPORT failed', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Backup failed',
+      };
+    }
   });
 }
