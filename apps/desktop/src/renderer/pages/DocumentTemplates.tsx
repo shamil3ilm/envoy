@@ -121,7 +121,7 @@ export default function DocumentTemplates() {
 
       if (result.success) {
         toast.success('PDF generated successfully');
-        logDocumentGenerated(template.name, 'pdf');
+        logDocumentGenerated(template.name, { format: 'pdf' });
       } else {
         toast.error(result.error || 'Failed to generate PDF');
       }
@@ -578,7 +578,7 @@ function UploadModal({
           </button>
           <button
             onClick={handleUpload}
-            disabled={!selectedFile || !templateName.trim() || uploading || (validation && !validation.valid)}
+            disabled={!selectedFile || !templateName.trim() || uploading || (validation ? !validation.valid : false)}
             className="px-4 py-2 text-sm bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {uploading ? 'Uploading...' : 'Upload Template'}

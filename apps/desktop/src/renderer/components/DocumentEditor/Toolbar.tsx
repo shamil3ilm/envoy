@@ -190,7 +190,7 @@ export default function Toolbar({ editor, pageColor, onPageColorChange, onExport
         onClick={() => {
           const next = !dragEnabled;
           setDragEnabled(next);
-          editor.storage.dragHandle.enabled = next;
+          (editor.storage as unknown as Record<string, { enabled: boolean }>).dragHandle.enabled = next;
         }}
         active={dragEnabled}
         title={dragEnabled ? 'Disable Drag & Drop' : 'Enable Drag & Drop'}

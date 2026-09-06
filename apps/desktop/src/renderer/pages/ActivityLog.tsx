@@ -31,6 +31,10 @@ const CATEGORY_ICONS: Record<ActivityCategory, React.ReactNode> = {
   system: <Database className="w-4 h-4" />,
   schedule: <Calendar className="w-4 h-4" />,
   reminder: <Bell className="w-4 h-4" />,
+  task: <FileText className="w-4 h-4" />,
+  note: <FileText className="w-4 h-4" />,
+  snippet: <FileText className="w-4 h-4" />,
+  expense: <FileText className="w-4 h-4" />,
 };
 
 const CATEGORY_COLORS: Record<ActivityCategory, string> = {
@@ -42,6 +46,10 @@ const CATEGORY_COLORS: Record<ActivityCategory, string> = {
   system: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   schedule: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
   reminder: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  task: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+  note: 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400',
+  snippet: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
+  expense: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
 };
 
 export default function ActivityLog() {

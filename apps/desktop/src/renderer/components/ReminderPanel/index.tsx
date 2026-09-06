@@ -251,7 +251,9 @@ export default function ReminderPanel({ compact = false, maxItems = 5, statusFil
                   <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                     {reminder.title}
                     {reminder.repeatSchedule && (
-                      <Repeat className="inline w-3 h-3 ml-1 text-gray-400" title="Recurring" />
+                      <span title="Recurring" className="inline-flex">
+                        <Repeat className="inline w-3 h-3 ml-1 text-gray-400" />
+                      </span>
                     )}
                   </p>
                   {reminder.description && !compact && (

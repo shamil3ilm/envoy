@@ -232,6 +232,6 @@ export const ShapeNode = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(ShapeNodeView);
+    return ReactNodeViewRenderer(ShapeNodeView as never);
   },
 });
