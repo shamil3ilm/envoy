@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, protocol, net } from 'electron';
+import { app, BrowserWindow, ipcMain, protocol, net, session, shell } from 'electron';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { PythonBridge } from './python-bridge';
@@ -10,8 +10,14 @@ import { SchedulerService } from './services/scheduler.service';
 import { ReminderService } from './services/reminder.service';
 import { TeamsService } from './services/teams.service';
 import { registerIpcHandlers } from './ipc-handlers';
+import { initLogger, logger } from './services/logger';
+import { isSafeExternalUrl } from './services/security';
+import { startAutoUpdater, installUpdateNow } from './services/updater';
+import { initSentry } from './services/sentry';
 
-// Register custom protocol scheme - must be done before app ready
+initLogger();
+initSentry();
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'app',
@@ -24,7 +30,6 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-// Keep references to prevent garbage collection
 let mainWindow: BrowserWindow | null = null;
 let pythonBridge: PythonBridge | null = null;
 let database: IDatabase | null = null;
@@ -37,19 +42,21 @@ function isDev(): boolean {
   return process.env.NODE_ENV === 'development' || !app.isPackaged;
 }
 
-// Register custom protocol for production to handle ES modules properly
 function registerAppProtocol(): void {
   protocol.handle('app', async (request) => {
-    // Parse the URL to get the pathname
     const parsedUrl = new URL(request.url);
     const pathname = parsedUrl.pathname;
-    // Remove leading slash and get the file path
     const relativePath = pathname.startsWith('/') ? pathname.slice(1) : pathname;
-    const filePath = path.join(__dirname, '..', 'renderer', relativePath);
-    console.log('Protocol request:', request.url, '-> file:', filePath);
+    const rendererRoot = path.join(__dirname, '..', 'renderer');
+    const resolved = path.normalize(path.join(rendererRoot, relativePath));
 
-    // Determine MIME type based on file extension
-    const ext = path.extname(filePath).toLowerCase();
+    // Prevent path traversal outside renderer directory
+    if (!resolved.startsWith(rendererRoot)) {
+      logger.warn('Blocked path traversal in app:// protocol', { requested: relativePath });
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    const ext = path.extname(resolved).toLowerCase();
     const mimeTypes: Record<string, string> = {
       '.html': 'text/html',
       '.js': 'text/javascript',
@@ -62,16 +69,67 @@ function registerAppProtocol(): void {
       '.woff2': 'font/woff2',
     };
 
-    const response = await net.fetch(pathToFileURL(filePath).toString());
+    const response = await net.fetch(pathToFileURL(resolved).toString());
     const contentType = mimeTypes[ext] || 'application/octet-stream';
-
-    // Create new response with correct content type
     const body = await response.arrayBuffer();
     return new Response(body, {
-      headers: {
-        'Content-Type': contentType,
+      headers: { 'Content-Type': contentType },
+    });
+  });
+}
+
+function installCspHeader(): void {
+  const devConnect = isDev() ? " ws://localhost:5173 http://localhost:5173" : '';
+  const scriptSrc = isDev() ? "'self' 'unsafe-inline'" : "'self'";
+  const styleSrc = "'self' 'unsafe-inline'";
+  const csp = [
+    "default-src 'self' app:",
+    `script-src ${scriptSrc} app:`,
+    `style-src ${styleSrc} app:`,
+    "img-src 'self' data: blob: app:",
+    "font-src 'self' data: app:",
+    `connect-src 'self' app:${devConnect} https://graph.microsoft.com https://login.microsoftonline.com`,
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'none'",
+  ].join('; ');
+
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [csp],
+        'X-Content-Type-Options': ['nosniff'],
+        'X-Frame-Options': ['DENY'],
+        'Referrer-Policy': ['no-referrer'],
       },
     });
+  });
+}
+
+function lockDownNavigation(win: BrowserWindow): void {
+  win.webContents.on('will-navigate', (event, url) => {
+    const isDevUrl = isDev() && url.startsWith('http://localhost:5173');
+    const isAppUrl = url.startsWith('app://');
+    if (!isDevUrl && !isAppUrl) {
+      event.preventDefault();
+      logger.warn('Blocked navigation', { url });
+    }
+  });
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) {
+      shell.openExternal(url).catch((err) => logger.error('openExternal failed', err));
+    } else {
+      logger.warn('Blocked window.open with unsafe URL', { url });
+    }
+    return { action: 'deny' };
+  });
+
+  win.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+    logger.warn('Blocked webview attachment');
   });
 }
 
@@ -86,29 +144,27 @@ async function createWindow(): Promise<void> {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
+      webviewTag: false,
+      spellcheck: true,
     },
-    show: false, // Show when ready
+    show: false,
   });
 
-  // Show window when ready to prevent flash
+  lockDownNavigation(mainWindow);
+
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
   });
 
-  // Load the app
   if (isDev()) {
-    console.log('Loading dev URL: http://localhost:5173');
+    logger.info('Loading dev URL: http://localhost:5173');
     await mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools();
   } else {
     const rendererPath = path.join(__dirname, '../renderer/index.html');
-    console.log('Loading renderer from:', rendererPath);
+    logger.info('Loading renderer', { rendererPath });
     await mainWindow.loadFile(rendererPath);
-  }
-
-  // Open DevTools in development only
-  if (isDev()) {
-    mainWindow.webContents.openDevTools();
   }
 
   mainWindow.on('closed', () => {
@@ -117,16 +173,12 @@ async function createWindow(): Promise<void> {
 }
 
 async function initialize(): Promise<void> {
-  console.log('Initializing Envoy...');
+  logger.info('Initializing Envoy');
 
-  // Initialize database
-  // Default: SQLite for local-first storage (no server needed)
-  // Set DB_TYPE=mysql to use MySQL server instead
   const dbType = process.env.DB_TYPE || 'sqlite';
 
   if (dbType === 'mysql') {
-    // MySQL mode - requires running MySQL server
-    console.log('Using MySQL database...');
+    logger.info('Using MySQL database');
     const mysqlDb = new DatabaseService({
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '3306'),
@@ -136,111 +188,96 @@ async function initialize(): Promise<void> {
     });
     await mysqlDb.initialize();
     database = mysqlDb as unknown as IDatabase;
-    console.log('MySQL database initialized');
+    logger.info('MySQL database initialized');
   } else {
-    // SQLite mode - local file storage (like WhatsApp)
-    console.log('Using SQLite database (local storage)...');
+    logger.info('Using SQLite database (local storage)');
     const sqliteDb = new SQLiteDatabaseService();
     await sqliteDb.initialize();
-    console.log(`SQLite database initialized at: ${sqliteDb.getDataPath()}`);
-    console.log(`Files stored at: ${sqliteDb.getFilesPath()}`);
+    logger.info('SQLite database initialized', {
+      dataPath: sqliteDb.getDataPath(),
+      filesPath: sqliteDb.getFilesPath(),
+    });
     database = sqliteDb as unknown as IDatabase;
   }
 
-  // Initialize Python bridge
   pythonBridge = new PythonBridge();
-
-  // Don't block startup if Python fails - we'll handle it gracefully
   pythonBridge.start().catch((error) => {
-    console.error('Failed to start Python engine:', error);
+    logger.error('Failed to start Python engine', error);
   });
 
-  // Initialize Email service
   emailService = new EmailService();
 
-  // Load saved email accounts from database
   try {
     const savedAccounts = await database.listEmailAccounts();
     await emailService.loadAccountsFromDB(savedAccounts);
-    console.log(`Loaded ${savedAccounts.length} email accounts`);
+    logger.info('Loaded email accounts', { count: savedAccounts.length });
   } catch (error) {
-    console.error('Failed to load email accounts:', error);
+    logger.error('Failed to load email accounts', error);
   }
 
-  // Initialize Scheduler service for scheduled message sending
   schedulerService = new SchedulerService(database as any, emailService, pythonBridge);
   schedulerService.start();
-  console.log('Scheduler service started');
+  logger.info('Scheduler service started');
 
-  // Initialize Reminder service for notifications
   reminderService = new ReminderService(database as any);
   reminderService.start();
-  console.log('Reminder service started');
+  logger.info('Reminder service started');
 
-  // Initialize Teams service (Graph API integration) and wire to scheduler
   teamsService = new TeamsService();
   schedulerService.setTeamsService(teamsService);
-  // Configure with saved client ID if available
   try {
     const savedSettings = await database.getSettings();
     const teamsClientId = (savedSettings as any).teamsClientId;
     if (teamsClientId) {
       teamsService.configure(teamsClientId);
-      console.log('Teams service configured');
+      logger.info('Teams service configured');
     }
   } catch (err) {
-    console.error('Failed to load Teams config:', err);
+    logger.error('Failed to load Teams config', err);
   }
 
-  // Register IPC handlers
   registerIpcHandlers(ipcMain, database as any, pythonBridge, emailService, reminderService, teamsService);
-  console.log('IPC handlers registered');
+  logger.info('IPC handlers registered');
 }
 
-// App event handlers
 app.on('ready', async () => {
   try {
-    // Register app:// protocol for production builds
+    installCspHeader();
     if (!isDev()) {
       registerAppProtocol();
-      console.log('Registered app:// protocol');
+      logger.info('Registered app:// protocol');
     }
     await initialize();
     await createWindow();
+    startAutoUpdater(mainWindow);
+    ipcMain.handle('updater:install', () => installUpdateNow());
   } catch (error) {
-    console.error('Failed to initialize app:', error);
+    logger.error('Failed to initialize app', error);
     app.quit();
   }
 });
 
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('will-attach-webview', (event) => event.preventDefault());
+});
+
 app.on('window-all-closed', () => {
-  // On macOS, apps typically stay open until explicitly quit
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
 app.on('activate', async () => {
-  // On macOS, re-create window when dock icon is clicked
   if (mainWindow === null) {
     await createWindow();
   }
 });
 
 app.on('before-quit', async (event) => {
-  // Cleanup
-  if (reminderService) {
-    reminderService.stop();
-  }
-  if (schedulerService) {
-    schedulerService.stop();
-  }
-  if (pythonBridge) {
-    pythonBridge.stop();
-  }
-  if (emailService) {
-    emailService.close();
-  }
+  if (reminderService) reminderService.stop();
+  if (schedulerService) schedulerService.stop();
+  if (pythonBridge) pythonBridge.stop();
+  if (emailService) emailService.close();
   if (database) {
     event.preventDefault();
     await database.close();
@@ -248,14 +285,12 @@ app.on('before-quit', async (event) => {
   }
 });
 
-// Handle uncaught errors
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
+  logger.error('Uncaught exception', error);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled rejection:', reason);
+  logger.error('Unhandled rejection', reason);
 });
 
-// Export for testing
 export { mainWindow, pythonBridge, database, schedulerService, reminderService };

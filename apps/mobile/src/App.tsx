@@ -6,18 +6,25 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { RootNavigator } from './navigation/RootNavigator';
 import { SettingsProvider } from './contexts/SettingsContext';
+import './sentry';
 
-class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error: string | null}> {
-  state = { error: null as string | null };
-  static getDerivedStateFromError(error: Error) {
-    return { error: error.message };
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
+  state = { hasError: false };
+  static getDerivedStateFromError(_error: Error) {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // eslint-disable-next-line no-console
+    console.error('[ErrorBoundary]', error, info.componentStack);
   }
   render() {
-    if (this.state.error) {
+    if (this.state.hasError) {
       return (
-        <View style={{ flex: 1, backgroundColor: '#dc2626', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <View style={{ flex: 1, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>Something went wrong</Text>
-          <Text style={{ color: 'white', fontSize: 14, marginTop: 10 }}>{this.state.error}</Text>
+          <Text style={{ color: '#9ca3af', fontSize: 14, marginTop: 12, textAlign: 'center' }}>
+            The app hit an unexpected error. Please restart to continue.
+          </Text>
         </View>
       );
     }

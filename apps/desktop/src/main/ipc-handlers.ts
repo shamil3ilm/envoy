@@ -8,6 +8,8 @@ import type { TeamsService } from './services/teams.service';
 import { IPC_CHANNELS } from '../shared/types';
 import * as fs from 'fs';
 import * as path from 'path';
+import { logger } from './services/logger';
+import { buildMailtoUrl, isSafeExternalUrl, isSafeUwpFamilyName, sanitizeEmail } from './services/security';
 import type {
   CreateTemplateInput,
   CreateContactInput,
@@ -845,18 +847,14 @@ export function registerIpcHandlers(
         message: string;
       }
     ) => {
-      // Clean phone number (remove spaces, dashes, etc.)
-      const cleanPhone = params.phone.replace(/[\s\-\(\)]/g, '');
-
-      // Encode message for URL
-      const encodedMessage = encodeURIComponent(params.message);
-
-      // Create WhatsApp Web URL
-      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
-
-      // Open in default browser
+      const { sanitizePhone } = require('./services/security');
+      const cleanPhone = sanitizePhone(params.phone);
+      if (!cleanPhone) {
+        return { success: false, method: 'web', url: '', error: 'Invalid phone number' };
+      }
+      const encodedMessage = encodeURIComponent(String(params.message ?? '').slice(0, 4000));
+      const whatsappUrl = `https://wa.me/${encodeURIComponent(cleanPhone)}?text=${encodedMessage}`;
       await shell.openExternal(whatsappUrl);
-
       return { success: true, method: 'web', url: whatsappUrl };
     }
   );
@@ -869,15 +867,13 @@ export function registerIpcHandlers(
         phone: string;
       }
     ) => {
-      // Clean phone number
-      const cleanPhone = params.phone.replace(/[\s\-\(\)]/g, '');
-
-      // Create WhatsApp Web URL (without message)
-      const whatsappUrl = `https://wa.me/${cleanPhone}`;
-
-      // Open in default browser
+      const { sanitizePhone } = require('./services/security');
+      const cleanPhone = sanitizePhone(params.phone);
+      if (!cleanPhone) {
+        return { success: false, url: '', error: 'Invalid phone number' };
+      }
+      const whatsappUrl = `https://wa.me/${encodeURIComponent(cleanPhone)}`;
       await shell.openExternal(whatsappUrl);
-
       return { success: true, url: whatsappUrl };
     }
   );
@@ -937,8 +933,11 @@ export function registerIpcHandlers(
         email: string;
       }
     ) => {
-      // Deep link fallback for just opening a chat
-      const teamsUrl = `https://teams.microsoft.com/l/chat/0/0?users=${params.email}`;
+      const safeEmail = sanitizeEmail(params.email);
+      if (!safeEmail) {
+        return { success: false, url: '', error: 'Invalid email address' };
+      }
+      const teamsUrl = `https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(safeEmail)}`;
       await shell.openExternal(teamsUrl);
       return { success: true, url: teamsUrl };
     }
@@ -951,9 +950,9 @@ export function registerIpcHandlers(
   ipcMain.handle(
     IPC_CHANNELS.SHELL_OPEN_EXTERNAL,
     async (_event, url: string) => {
-      // Only allow http/https/mailto URLs
-      if (!/^(https?|mailto):/.test(url)) {
-        return { success: false, error: 'Invalid URL scheme' };
+      if (!isSafeExternalUrl(url)) {
+        logger.warn('Blocked shell.openExternal with unsafe URL', { url });
+        return { success: false, error: 'Invalid URL' };
       }
       await shell.openExternal(url);
       return { success: true };
@@ -1073,7 +1072,9 @@ export function registerIpcHandlers(
     }
   );
 
-  // Open compose in a desktop mail app
+  // Open compose in a desktop mail app.
+  // All user-controlled strings pass through sanitizers before hitting execFile or shell.openExternal;
+  // no shell-string concatenation, no `{ shell: true }`.
   ipcMain.handle(
     IPC_CHANNELS.OPEN_IN_DESKTOP_MAIL_APP,
     async (
@@ -1081,39 +1082,40 @@ export function registerIpcHandlers(
       params: { appId: string; appPath: string; to: string; subject: string; body: string }
     ): Promise<{ success: boolean; error?: string }> => {
       const { appId, appPath, to, subject, body } = params;
-      const mailto = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      const mailto = buildMailtoUrl(to, subject, body);
+      if (!mailto) {
+        return { success: false, error: 'Invalid recipient' };
+      }
 
       try {
-        // UWP/Store apps - launch via shell:appsFolder protocol
         if (appPath.startsWith('uwp:')) {
-          const familyName = appPath.replace('uwp:', '');
-          const { exec: execCmd } = require('child_process');
-          // For mail UWP apps, use mailto: protocol which routes to the default/registered handler
-          // But first set the app as target via explorer shell:appsFolder launch
-          if (appId === 'outlook-uwp') {
-            // New Outlook registers the ms-outlook: protocol and also handles mailto:
-            await shell.openExternal(mailto);
-          } else if (appId === 'windows-mail') {
-            await shell.openExternal(mailto);
-          } else {
-            // Generic UWP - try explorer shell:appsFolder
-            execCmd(`start "" "shell:appsFolder\\${familyName}!App"`, { shell: true });
+          const familyName = appPath.slice('uwp:'.length);
+          if (!isSafeUwpFamilyName(familyName)) {
+            logger.warn('Rejected unsafe UWP family name', { familyName });
+            return { success: false, error: 'Invalid app identifier' };
           }
+          // All UWP mail apps we care about (New Outlook, Windows Mail) register mailto:;
+          // routing via the default handler is safer than shelling out.
+          await shell.openExternal(mailto);
         } else if (appId === 'outlook-desktop') {
           const { execFile } = require('child_process');
-          const mailtoArg = `${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+          const safeSubject = String(subject ?? '').slice(0, 998);
+          const safeBody = String(body ?? '').slice(0, 20000);
+          const safeTo = sanitizeEmail(to);
+          if (!safeTo) return { success: false, error: 'Invalid recipient' };
+          const mailtoArg = `${safeTo}?subject=${encodeURIComponent(safeSubject)}&body=${encodeURIComponent(safeBody)}`;
           execFile(appPath, ['/c', 'ipm.note', '/m', mailtoArg]);
-        } else if (appId === 'thunderbird') {
-          const { execFile } = require('child_process');
-          execFile(appPath, ['-compose', `to='${to}',subject='${subject.replace(/'/g, "\\'")}',body='${body.replace(/'/g, "\\'")}'`]);
         } else {
-          // All others - use mailto: protocol
+          // Thunderbird, Apple Mail, and everything else: mailto: via the OS handler.
+          // Thunderbird's -compose flag has a string-parsing format that cannot be safely
+          // built from user-supplied strings, so we route through the mailto: handler instead.
           await shell.openExternal(mailto);
         }
 
         return { success: true };
       } catch (err) {
-        return { success: false, error: (err as Error).message };
+        logger.error('OPEN_IN_DESKTOP_MAIL_APP failed', err);
+        return { success: false, error: 'Failed to open mail app' };
       }
     }
   );
