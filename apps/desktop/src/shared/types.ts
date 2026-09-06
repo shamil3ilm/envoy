@@ -651,6 +651,11 @@ export const IPC_CHANNELS = {
   BACKUP_AUTO_STATUS: 'backup:autoStatus',
   BACKUP_AUTO_SET: 'backup:autoSet',
   BACKUP_RESTORE_LATEST_AUTO: 'backup:restoreLatestAuto',
+
+  // Diagnostics
+  DIAGNOSTICS_CHECK_DB: 'diagnostics:checkDb',
+  DIAGNOSTICS_STATS: 'diagnostics:stats',
+  DIAGNOSTICS_OPEN_BACKUPS_FOLDER: 'diagnostics:openBackupsFolder',
 } as const;
 
 // ============================================

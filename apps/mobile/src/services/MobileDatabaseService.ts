@@ -2458,4 +2458,16 @@ export class MobileDatabaseService implements IDatabase {
       this.db = null;
     }
   }
+
+  async checkIntegrity(): Promise<{ ok: boolean; issues: string[] }> {
+    if (!this.db) throw new Error('Database not initialized');
+    const result = await this.db.execute('PRAGMA integrity_check');
+    const rows = result.rows || [];
+    // op-sqlite exposes the pragma result as { integrity_check: string } rows.
+    const messages = rows
+      .map((r: any) => r?.integrity_check ?? Object.values(r)[0])
+      .filter((v: unknown): v is string => typeof v === 'string');
+    const ok = messages.length === 1 && messages[0] === 'ok';
+    return { ok, issues: ok ? [] : messages };
+  }
 }

@@ -55,6 +55,9 @@ export interface IDatabase {
   initialize(): Promise<void>;
   close(): Promise<void>;
 
+  // Diagnostics
+  checkIntegrity(): Promise<{ ok: boolean; issues: string[] }>;
+
   // Templates
   createTemplate(input: CreateTemplateInput): Promise<Template>;
   getTemplate(id: string): Promise<Template | null>;
