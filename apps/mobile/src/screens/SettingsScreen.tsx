@@ -14,7 +14,13 @@ import {
 import Toast from 'react-native-toast-message';
 import { useSettings } from '../contexts/SettingsContext';
 import { useDatabase, useDatabaseReady } from '../contexts/DatabaseContext';
-import { collectMobileBackup } from '../services/BackupService';
+import {
+  collectMobileBackup,
+  parseBackupEnvelope,
+  restoreMobileBackup,
+  type ParsedBackupSummary,
+} from '../services/BackupService';
+import { TextInput } from 'react-native';
 import type {
   NotificationSoundType,
   NotificationSound,
@@ -60,6 +66,11 @@ export default function SettingsScreen() {
   const ready = useDatabaseReady();
   const [expandedSection, setExpandedSection] = useState<SettingsSection | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoreJson, setRestoreJson] = useState('');
+  const [restoreSummary, setRestoreSummary] = useState<ParsedBackupSummary | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   const exportBackup = useCallback(async () => {
     if (!ready || !db) {
@@ -90,6 +101,68 @@ export default function SettingsScreen() {
       setExporting(false);
     }
   }, [db, ready]);
+
+  const previewRestore = useCallback(() => {
+    setRestoreError(null);
+    setRestoreSummary(null);
+    const trimmed = restoreJson.trim();
+    if (!trimmed) {
+      setRestoreError('Paste a backup JSON first');
+      return;
+    }
+    try {
+      const { summary } = parseBackupEnvelope(trimmed);
+      setRestoreSummary(summary);
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : 'Invalid backup');
+    }
+  }, [restoreJson]);
+
+  const runRestore = useCallback(async () => {
+    if (!ready || !db) {
+      Alert.alert('Database not ready yet');
+      return;
+    }
+    if (!restoreSummary) {
+      Alert.alert('Preview the backup first');
+      return;
+    }
+    Alert.alert(
+      'Restore backup?',
+      `Merge ${restoreSummary.totalRecords} records into the current database?` +
+        '\n\nRows with a matching id will update in place. Nothing will be deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          style: 'destructive',
+          onPress: async () => {
+            setRestoring(true);
+            try {
+              const { envelope } = parseBackupEnvelope(restoreJson.trim());
+              const result = await restoreMobileBackup(db as any, envelope);
+              Toast.show({
+                type: 'success',
+                text1: `Restored ${result.totalApplied} records`,
+                text2:
+                  Object.values(result.skipped).reduce((s, n) => s + n, 0) > 0
+                    ? 'Some rows were skipped (check console)'
+                    : undefined,
+              });
+              setRestoreOpen(false);
+              setRestoreJson('');
+              setRestoreSummary(null);
+            } catch (err) {
+              console.error('Restore failed', err);
+              Alert.alert('Restore failed', err instanceof Error ? err.message : 'Unknown error');
+            } finally {
+              setRestoring(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [db, ready, restoreJson, restoreSummary]);
 
   const toggleSection = useCallback((section: SettingsSection) => {
     setExpandedSection(prev => prev === section ? null : section);
@@ -295,7 +368,7 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.sectionHeaderText}>
                 <Text style={styles.sectionTitle}>Data & Backup</Text>
-                <Text style={styles.sectionSubtitle}>Export a JSON snapshot of your data</Text>
+                <Text style={styles.sectionSubtitle}>Export or restore a JSON snapshot</Text>
               </View>
             </View>
           </View>
@@ -313,6 +386,81 @@ export default function SettingsScreen() {
               Uses the system share sheet — send the JSON to iCloud Drive, Google Drive,
               email, or a messaging app. Email account credentials are not included.
             </Text>
+
+            <View style={styles.restoreDivider} />
+
+            {!restoreOpen ? (
+              <TouchableOpacity
+                style={styles.restoreOpenButton}
+                onPress={() => setRestoreOpen(true)}
+              >
+                <Text style={styles.restoreOpenText}>Restore from JSON…</Text>
+              </TouchableOpacity>
+            ) : (
+              <View>
+                <Text style={styles.restoreLabel}>Paste backup JSON</Text>
+                <TextInput
+                  style={styles.restoreInput}
+                  value={restoreJson}
+                  onChangeText={(v) => {
+                    setRestoreJson(v);
+                    setRestoreSummary(null);
+                    setRestoreError(null);
+                  }}
+                  placeholder='{"version":1,"exportedAt":"…","entities":{…}}'
+                  placeholderTextColor="#9ca3af"
+                  multiline
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                {restoreError && <Text style={styles.restoreError}>{restoreError}</Text>}
+                {restoreSummary && (
+                  <View style={styles.restorePreview}>
+                    <Text style={styles.restorePreviewTitle}>Preview</Text>
+                    <Text style={styles.restorePreviewLine}>
+                      Exported: {new Date(restoreSummary.exportedAt).toLocaleString()}
+                    </Text>
+                    <Text style={styles.restorePreviewLine}>
+                      From app version: {restoreSummary.appVersion}
+                    </Text>
+                    <Text style={styles.restorePreviewLine}>
+                      Records: {restoreSummary.totalRecords}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.restoreActions}>
+                  <TouchableOpacity
+                    style={styles.restoreCancelButton}
+                    onPress={() => {
+                      setRestoreOpen(false);
+                      setRestoreJson('');
+                      setRestoreSummary(null);
+                      setRestoreError(null);
+                    }}
+                  >
+                    <Text style={styles.restoreCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.restorePreviewButton}
+                    onPress={previewRestore}
+                  >
+                    <Text style={styles.restorePreviewButtonText}>Preview</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.restoreApplyButton,
+                      (!restoreSummary || restoring) && styles.restoreApplyDisabled,
+                    ]}
+                    onPress={runRestore}
+                    disabled={!restoreSummary || restoring}
+                  >
+                    <Text style={styles.restoreApplyText}>
+                      {restoring ? 'Restoring…' : 'Restore'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
@@ -496,6 +644,100 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     lineHeight: 15,
   },
+  restoreDivider: {
+    marginVertical: 16,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#e5e7eb',
+  },
+  restoreOpenButton: {
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+  },
+  restoreOpenText: { color: '#374151', fontWeight: '600', fontSize: 14 },
+  restoreLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  restoreInput: {
+    minHeight: 120,
+    borderRadius: 10,
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    fontSize: 12,
+    color: '#111827',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    textAlignVertical: 'top',
+  },
+  restoreError: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#dc2626',
+  },
+  restorePreview: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#eef2ff',
+  },
+  restorePreviewTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4338ca',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  restorePreviewLine: {
+    fontSize: 12,
+    color: '#1e1b4b',
+    marginBottom: 2,
+  },
+  restoreActions: {
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 8,
+  },
+  restoreCancelButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restoreCancelText: { color: '#6b7280', fontSize: 13, fontWeight: '500' },
+  restorePreviewButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#3b82f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 6,
+  },
+  restorePreviewButtonText: { color: 'white', fontSize: 13, fontWeight: '600' },
+  restoreApplyButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#10b981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restoreApplyDisabled: {
+    backgroundColor: '#d1d5db',
+  },
+  restoreApplyText: { color: 'white', fontSize: 13, fontWeight: '600' },
   footer: {
     alignItems: 'center',
     paddingVertical: 24,
