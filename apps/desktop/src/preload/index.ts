@@ -466,6 +466,32 @@ const api = {
       | { success: true; path: string; counts: Record<string, number> }
       | { success: false; cancelled?: boolean; error?: string }
     > => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_EXPORT),
+
+    inspect: (): Promise<
+      | {
+          success: true;
+          path: string;
+          summary: {
+            version: number;
+            exportedAt: string;
+            appVersion: string;
+            counts: Record<string, number>;
+            totalRecords: number;
+          };
+        }
+      | { success: false; cancelled?: boolean; error?: string }
+    > => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_INSPECT),
+
+    restore: (): Promise<
+      | {
+          success: true;
+          applied: Record<string, number>;
+          skipped: Record<string, number>;
+          totalApplied: number;
+          preRestorePath?: string;
+        }
+      | { success: false; cancelled?: boolean; error?: string }
+    > => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_RESTORE),
   },
 
   // Automation Rules

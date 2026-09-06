@@ -646,6 +646,8 @@ export const IPC_CHANNELS = {
 
   // Data backup & restore
   BACKUP_EXPORT: 'backup:export',
+  BACKUP_INSPECT: 'backup:inspect',
+  BACKUP_RESTORE: 'backup:restore',
 } as const;
 
 // ============================================

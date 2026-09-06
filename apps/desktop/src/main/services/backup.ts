@@ -27,6 +27,85 @@ export interface BackupEnvelope {
   counts: Record<string, number>;
 }
 
+export interface BackupSummary {
+  version: number;
+  exportedAt: string;
+  appVersion: string;
+  counts: Record<string, number>;
+  totalRecords: number;
+}
+
+const REQUIRED_ENTITY_KEYS = [
+  'contacts',
+  'contactGroups',
+  'templates',
+  'snippets',
+  'tasks',
+  'notes',
+  'noteGroups',
+  'calendarEvents',
+  'reminders',
+  'scheduledMessages',
+  'auditLogs',
+  'expenses',
+  'richDocuments',
+  'settings',
+] as const;
+
+/**
+ * Read a backup file, verify shape, and return summary metadata. Used for
+ * the "before I restore, what's in this file?" preview flow.
+ */
+export function inspectBackupFile(filePath: string): BackupSummary {
+  if (!fs.existsSync(filePath)) {
+    throw new Error('File does not exist');
+  }
+  const raw = fs.readFileSync(filePath, 'utf8');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('File is not valid JSON');
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('Backup envelope is not an object');
+  }
+  const env = parsed as Partial<BackupEnvelope>;
+  if (env.version !== 1) {
+    throw new Error(`Unsupported backup version: ${String(env.version)}`);
+  }
+  if (typeof env.exportedAt !== 'string' || !env.exportedAt) {
+    throw new Error('Missing exportedAt timestamp');
+  }
+  if (!env.entities || typeof env.entities !== 'object') {
+    throw new Error('Missing entities section');
+  }
+  const missing: string[] = [];
+  for (const key of REQUIRED_ENTITY_KEYS) {
+    if (!(key in env.entities)) missing.push(key);
+  }
+  if (missing.length > 0) {
+    throw new Error(`Backup is missing entity keys: ${missing.join(', ')}`);
+  }
+
+  const counts: Record<string, number> = {};
+  let totalRecords = 0;
+  for (const [key, value] of Object.entries(env.entities)) {
+    const n = Array.isArray(value) ? value.length : value ? 1 : 0;
+    counts[key] = n;
+    totalRecords += n;
+  }
+
+  return {
+    version: env.version,
+    exportedAt: env.exportedAt,
+    appVersion: env.appVersion ?? 'unknown',
+    counts,
+    totalRecords,
+  };
+}
+
 /**
  * Collect every user-owned entity into a single JSON envelope. Kept as a
  * pure function of the database — safe to invoke from either a save-to-disk
@@ -117,4 +196,153 @@ export async function writeBackupFile(
   fs.writeFileSync(tmp, json, 'utf8');
   fs.renameSync(tmp, outputPath);
   logger.info('Backup written', { outputPath, bytes: json.length });
+}
+
+export interface RestoreResult {
+  applied: Record<string, number>;
+  skipped: Record<string, number>;
+  totalApplied: number;
+}
+
+interface RowLike {
+  id?: unknown;
+}
+
+interface RestoreDatabase {
+  createContact: (input: any) => Promise<{ id: string }>;
+  updateContact: (id: string, input: any) => Promise<unknown>;
+  getContact: (id: string) => Promise<unknown>;
+  createTemplate: (input: any) => Promise<{ id: string }>;
+  updateTemplate: (id: string, input: any) => Promise<unknown>;
+  getTemplate: (id: string) => Promise<unknown>;
+  createSnippet: (input: any) => Promise<{ id: string }>;
+  updateSnippet: (id: string, input: any) => Promise<unknown>;
+  getSnippet: (id: string) => Promise<unknown>;
+  createTask: (input: any) => Promise<{ id: string }>;
+  updateTask: (id: string, input: any) => Promise<unknown>;
+  getTask: (id: string) => Promise<unknown>;
+  createNote: (input: any) => Promise<{ id: string }>;
+  updateNote: (id: string, input: any) => Promise<unknown>;
+  getNote: (id: string) => Promise<unknown>;
+  createExpense: (input: any) => Promise<{ id: string }>;
+  updateExpense: (id: string, input: any) => Promise<unknown>;
+  getExpense: (id: string) => Promise<unknown>;
+  createRichDocument: (input: any) => Promise<{ id: string }>;
+  updateRichDocument: (id: string, input: any) => Promise<unknown>;
+  getRichDocument: (id: string) => Promise<unknown>;
+}
+
+async function upsertList<T extends RowLike>(
+  rows: T[],
+  get: (id: string) => Promise<unknown>,
+  create: (input: any) => Promise<{ id: string }>,
+  update: (id: string, input: any) => Promise<unknown>
+): Promise<{ applied: number; skipped: number }> {
+  let applied = 0;
+  let skipped = 0;
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') {
+      skipped++;
+      continue;
+    }
+    const id = typeof row.id === 'string' ? row.id : null;
+    try {
+      const { id: _stripId, createdAt, updatedAt, ...input } = row as any;
+      if (id && (await get(id))) {
+        await update(id, input);
+      } else {
+        await create(input);
+      }
+      applied++;
+    } catch (err) {
+      logger.warn('Restore row failed', { id, err });
+      skipped++;
+    }
+  }
+  return { applied, skipped };
+}
+
+/**
+ * Merge a backup envelope into the running database. For every entity type
+ * with a stable `id`, existing rows update in place and unknown IDs create.
+ * Deletions on the source side are NOT propagated — this is a strict
+ * additive/upsert merge so the user never loses data they already had.
+ *
+ * Audit logs, calendar events, contact groups, note groups, scheduled
+ * messages, and reminders are skipped for now — their create signatures
+ * don't match the shape the export produces without deeper adapters.
+ * They'll ship in a follow-up.
+ */
+export async function restoreEnvelope(
+  db: RestoreDatabase,
+  envelope: BackupEnvelope
+): Promise<RestoreResult> {
+  const applied: Record<string, number> = {};
+  const skipped: Record<string, number> = {};
+
+  const contacts = await upsertList(
+    envelope.entities.contacts as RowLike[],
+    (id) => db.getContact(id),
+    (input) => db.createContact(input),
+    (id, input) => db.updateContact(id, input) as Promise<unknown>
+  );
+  applied.contacts = contacts.applied;
+  skipped.contacts = contacts.skipped;
+
+  const templates = await upsertList(
+    envelope.entities.templates as RowLike[],
+    (id) => db.getTemplate(id),
+    (input) => db.createTemplate(input),
+    (id, input) => db.updateTemplate(id, input) as Promise<unknown>
+  );
+  applied.templates = templates.applied;
+  skipped.templates = templates.skipped;
+
+  const snippets = await upsertList(
+    envelope.entities.snippets as RowLike[],
+    (id) => db.getSnippet(id),
+    (input) => db.createSnippet(input),
+    (id, input) => db.updateSnippet(id, input) as Promise<unknown>
+  );
+  applied.snippets = snippets.applied;
+  skipped.snippets = snippets.skipped;
+
+  const tasks = await upsertList(
+    envelope.entities.tasks as RowLike[],
+    (id) => db.getTask(id),
+    (input) => db.createTask(input),
+    (id, input) => db.updateTask(id, input) as Promise<unknown>
+  );
+  applied.tasks = tasks.applied;
+  skipped.tasks = tasks.skipped;
+
+  const notes = await upsertList(
+    envelope.entities.notes as RowLike[],
+    (id) => db.getNote(id),
+    (input) => db.createNote(input),
+    (id, input) => db.updateNote(id, input) as Promise<unknown>
+  );
+  applied.notes = notes.applied;
+  skipped.notes = notes.skipped;
+
+  const expenses = await upsertList(
+    envelope.entities.expenses as RowLike[],
+    (id) => db.getExpense(id),
+    (input) => db.createExpense(input),
+    (id, input) => db.updateExpense(id, input) as Promise<unknown>
+  );
+  applied.expenses = expenses.applied;
+  skipped.expenses = expenses.skipped;
+
+  const documents = await upsertList(
+    envelope.entities.richDocuments as RowLike[],
+    (id) => db.getRichDocument(id),
+    (input) => db.createRichDocument(input),
+    (id, input) => db.updateRichDocument(id, input) as Promise<unknown>
+  );
+  applied.richDocuments = documents.applied;
+  skipped.richDocuments = documents.skipped;
+
+  const totalApplied = Object.values(applied).reduce((sum, n) => sum + n, 0);
+  return { applied, skipped, totalApplied };
 }

@@ -21,7 +21,13 @@ vi.mock('./logger', () => ({
   },
 }));
 
-import { collectBackup, writeBackupFile, type BackupEnvelope } from './backup';
+import {
+  collectBackup,
+  inspectBackupFile,
+  restoreEnvelope,
+  writeBackupFile,
+  type BackupEnvelope,
+} from './backup';
 
 interface StubDb {
   listContacts: () => Promise<unknown[]>;
@@ -158,5 +164,204 @@ describe('writeBackupFile', () => {
     await writeBackupFile(outputPath, envelope);
     expect(fs.existsSync(outputPath)).toBe(true);
     expect(fs.existsSync(outputPath + '.tmp')).toBe(false);
+  });
+});
+
+function makeEnvelope(overrides: Partial<BackupEnvelope> = {}): BackupEnvelope {
+  return {
+    version: 1,
+    exportedAt: '2026-09-06T00:00:00Z',
+    appVersion: '1.0.0-test',
+    entities: {
+      contacts: [],
+      contactGroups: [],
+      templates: [],
+      snippets: [],
+      tasks: [],
+      notes: [],
+      noteGroups: [],
+      calendarEvents: [],
+      reminders: [],
+      scheduledMessages: [],
+      auditLogs: [],
+      expenses: [],
+      richDocuments: [],
+      settings: {},
+    },
+    counts: {},
+    ...overrides,
+  };
+}
+
+describe('inspectBackupFile', () => {
+  let tmp: string;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'envoy-inspect-test-'));
+  });
+
+  it('returns a summary for a valid envelope', () => {
+    const filePath = path.join(tmp, 'valid.json');
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify(
+        makeEnvelope({
+          entities: {
+            ...makeEnvelope().entities,
+            contacts: [{ id: 'a' }, { id: 'b' }],
+            templates: [{ id: 't1' }],
+          },
+        })
+      )
+    );
+    const summary = inspectBackupFile(filePath);
+    expect(summary.version).toBe(1);
+    expect(summary.counts.contacts).toBe(2);
+    expect(summary.counts.templates).toBe(1);
+    expect(summary.totalRecords).toBe(4); // contacts:2 + templates:1 + settings:1
+  });
+
+  it('throws when the file is missing', () => {
+    expect(() => inspectBackupFile(path.join(tmp, 'nope.json'))).toThrow(/does not exist/);
+  });
+
+  it('throws on non-JSON content', () => {
+    const filePath = path.join(tmp, 'garbage.json');
+    fs.writeFileSync(filePath, 'not json at all');
+    expect(() => inspectBackupFile(filePath)).toThrow(/not valid JSON/);
+  });
+
+  it('throws on unsupported version', () => {
+    const filePath = path.join(tmp, 'v9.json');
+    fs.writeFileSync(filePath, JSON.stringify({ ...makeEnvelope(), version: 9 }));
+    expect(() => inspectBackupFile(filePath)).toThrow(/Unsupported backup version/);
+  });
+
+  it('throws when entity keys are missing', () => {
+    const filePath = path.join(tmp, 'partial.json');
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({
+        version: 1,
+        exportedAt: 'x',
+        entities: { contacts: [] },
+      })
+    );
+    expect(() => inspectBackupFile(filePath)).toThrow(/missing entity keys/);
+  });
+});
+
+describe('restoreEnvelope', () => {
+  interface CallLog {
+    op: 'create' | 'update';
+    entity: string;
+    id?: string;
+    input: Record<string, unknown>;
+  }
+
+  function makeDb(existingIds: Record<string, Set<string>> = {}) {
+    const log: CallLog[] = [];
+    const entity = (name: string) => ({
+      get: async (id: string) => (existingIds[name]?.has(id) ? { id } : null),
+      create: async (input: Record<string, unknown>) => {
+        log.push({ op: 'create', entity: name, input });
+        return { id: 'new-' + Math.random().toString(36).slice(2, 8) };
+      },
+      update: async (id: string, input: Record<string, unknown>) => {
+        log.push({ op: 'update', entity: name, id, input });
+        return { id };
+      },
+    });
+
+    const contacts = entity('contacts');
+    const templates = entity('templates');
+    const snippets = entity('snippets');
+    const tasks = entity('tasks');
+    const notes = entity('notes');
+    const expenses = entity('expenses');
+    const docs = entity('docs');
+
+    return {
+      db: {
+        getContact: contacts.get,
+        createContact: contacts.create,
+        updateContact: contacts.update,
+        getTemplate: templates.get,
+        createTemplate: templates.create,
+        updateTemplate: templates.update,
+        getSnippet: snippets.get,
+        createSnippet: snippets.create,
+        updateSnippet: snippets.update,
+        getTask: tasks.get,
+        createTask: tasks.create,
+        updateTask: tasks.update,
+        getNote: notes.get,
+        createNote: notes.create,
+        updateNote: notes.update,
+        getExpense: expenses.get,
+        createExpense: expenses.create,
+        updateExpense: expenses.update,
+        getRichDocument: docs.get,
+        createRichDocument: docs.create,
+        updateRichDocument: docs.update,
+      },
+      log,
+    };
+  }
+
+  it('creates new rows when the id is not present', async () => {
+    const { db, log } = makeDb();
+    const envelope = makeEnvelope({
+      entities: {
+        ...makeEnvelope().entities,
+        contacts: [{ id: 'c1', name: 'Alice' }],
+      },
+    });
+    const result = await restoreEnvelope(db, envelope);
+    expect(result.applied.contacts).toBe(1);
+    expect(result.totalApplied).toBe(1);
+    expect(log[0]).toMatchObject({ op: 'create', entity: 'contacts' });
+    expect((log[0].input as any).id).toBeUndefined(); // id is stripped
+    expect((log[0].input as any).createdAt).toBeUndefined(); // timestamps stripped
+  });
+
+  it('updates existing rows in place', async () => {
+    const { db, log } = makeDb({ contacts: new Set(['c1']) });
+    const envelope = makeEnvelope({
+      entities: {
+        ...makeEnvelope().entities,
+        contacts: [{ id: 'c1', name: 'Alice v2' }],
+      },
+    });
+    await restoreEnvelope(db, envelope);
+    expect(log[0]).toMatchObject({ op: 'update', entity: 'contacts', id: 'c1' });
+  });
+
+  it('counts a malformed row as skipped, not applied', async () => {
+    const { db } = makeDb();
+    const envelope = makeEnvelope({
+      entities: {
+        ...makeEnvelope().entities,
+        contacts: [null as unknown as { id: string }, { id: 'ok', name: 'Bob' }],
+      },
+    });
+    const result = await restoreEnvelope(db, envelope);
+    expect(result.applied.contacts).toBe(1);
+    expect(result.skipped.contacts).toBe(1);
+  });
+
+  it('does not throw when a single row fails; records as skipped', async () => {
+    const { db } = makeDb();
+    db.createContact = async () => {
+      throw new Error('write failed');
+    };
+    const envelope = makeEnvelope({
+      entities: {
+        ...makeEnvelope().entities,
+        contacts: [{ id: 'x', name: 'boom' }],
+      },
+    });
+    const result = await restoreEnvelope(db, envelope);
+    expect(result.applied.contacts).toBe(0);
+    expect(result.skipped.contacts).toBe(1);
   });
 });
