@@ -283,6 +283,8 @@ describe('restoreEnvelope', () => {
     const calendarEvents = entity('calendarEvents');
     const contactGroups = entity('contactGroups');
     const scheduledMessages = entity('scheduledMessages');
+    const noteGroups = entity('noteGroups');
+    let lastSettings: unknown = undefined;
 
     return {
       db: {
@@ -319,8 +321,15 @@ describe('restoreEnvelope', () => {
         getScheduledMessage: scheduledMessages.get,
         createScheduledMessage: scheduledMessages.create,
         updateScheduledMessage: scheduledMessages.update,
+        getNoteGroup: noteGroups.get,
+        createNoteGroup: noteGroups.create,
+        updateNoteGroup: noteGroups.update,
+        setSettings: async (settings: unknown) => {
+          lastSettings = settings;
+        },
       },
       log,
+      getLastSettings: () => lastSettings,
     };
   }
 
@@ -399,5 +408,36 @@ describe('restoreEnvelope', () => {
     expect(result.applied.scheduledMessages).toBe(1);
     expect(log.filter((l) => l.entity === 'reminders')[0]).toMatchObject({ op: 'create' });
     expect(log.filter((l) => l.entity === 'calendarEvents')[0]).toMatchObject({ op: 'create' });
+  });
+
+  it('restores note groups and settings', async () => {
+    const { db, getLastSettings } = makeDb();
+    const envelope = makeEnvelope({
+      entities: {
+        ...makeEnvelope().entities,
+        noteGroups: [{ id: 'ng1', name: 'Ideas' }],
+        settings: { theme: 'dark', accentColor: 'blue' },
+      },
+    });
+    const result = await restoreEnvelope(db, envelope);
+    expect(result.applied.noteGroups).toBe(1);
+    expect(result.applied.settings).toBe(1);
+    expect(getLastSettings()).toEqual({ theme: 'dark', accentColor: 'blue' });
+  });
+
+  it('counts a settings restore failure as skipped without throwing', async () => {
+    const { db } = makeDb();
+    db.setSettings = async () => {
+      throw new Error('settings write failed');
+    };
+    const envelope = makeEnvelope({
+      entities: {
+        ...makeEnvelope().entities,
+        settings: { theme: 'dark' },
+      },
+    });
+    const result = await restoreEnvelope(db, envelope);
+    expect(result.applied.settings).toBe(0);
+    expect(result.skipped.settings).toBe(1);
   });
 });

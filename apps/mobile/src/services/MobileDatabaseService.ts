@@ -1964,6 +1964,13 @@ export class MobileDatabaseService implements IDatabase {
     return this.mapNoteGroup(row);
   }
 
+  async getNoteGroup(id: string): Promise<NoteGroup | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    const result = await this.db.execute('SELECT * FROM note_groups WHERE id = ?', [id]);
+    const row = result.rows?.[0];
+    return row ? this.mapNoteGroup(row) : null;
+  }
+
   async listNoteGroups(): Promise<NoteGroup[]> {
     if (!this.db) throw new Error('Database not initialized');
 

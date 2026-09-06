@@ -273,6 +273,10 @@ interface RestoreDatabase {
   createScheduledMessage: (input: any) => Promise<{ id: string }>;
   updateScheduledMessage: (id: string, input: any) => Promise<unknown>;
   getScheduledMessage: (id: string) => Promise<unknown>;
+  createNoteGroup: (input: any) => Promise<{ id: string }>;
+  updateNoteGroup: (id: string, input: any) => Promise<unknown>;
+  getNoteGroup: (id: string) => Promise<unknown>;
+  setSettings: (settings: any) => Promise<void>;
 }
 
 /**
@@ -373,6 +377,31 @@ export async function restoreMobileBackup(
     db.createScheduledMessage,
     db.updateScheduledMessage
   );
+  // noteGroups is not in the mobile envelope schema but desktop exports include
+  // it. Accept it silently so desktop -> mobile restore preserves the groups.
+  await runSet(
+    'noteGroups',
+    (entities.noteGroups as RowLike[]) ?? [],
+    db.getNoteGroup,
+    db.createNoteGroup,
+    db.updateNoteGroup
+  );
+
+  // Settings replace-in-place — one row per install, no id shape to merge on.
+  // Skip empty objects: an export from a fresh install will have {} and there's
+  // nothing meaningful to write back.
+  applied.settings = 0;
+  skipped.settings = 0;
+  const settings = entities.settings;
+  if (settings && typeof settings === 'object' && Object.keys(settings as object).length > 0) {
+    try {
+      await db.setSettings(settings);
+      applied.settings = 1;
+    } catch (err) {
+      console.warn('Settings restore failed', err);
+      skipped.settings = 1;
+    }
+  }
 
   const totalApplied = Object.values(applied).reduce((sum, n) => sum + n, 0);
   return { applied, skipped, totalApplied };
