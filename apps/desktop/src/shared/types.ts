@@ -664,6 +664,7 @@ export const IPC_CHANNELS = {
   SYNC_ENABLE: 'sync:enable',
   SYNC_DISABLE: 'sync:disable',
   SYNC_REGENERATE_TOKEN: 'sync:regenerateToken',
+  SYNC_SHOW_QR: 'sync:showQr',
 } as const;
 
 // ============================================

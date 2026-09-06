@@ -25,6 +25,7 @@ import {
   runMobileVacuum,
 } from '../services/MobileDiagnosticsService';
 import {
+  parsePairingUrl,
   pingDesktop,
   pullFromDesktop,
   pushToDesktop,
@@ -748,7 +749,16 @@ export default function SettingsScreen() {
               placeholder="http://192.168.1.42:47828"
               placeholderTextColor="#9ca3af"
               value={syncUrl}
-              onChangeText={setSyncUrl}
+              onChangeText={(v) => {
+                const pair = parsePairingUrl(v);
+                if (pair) {
+                  setSyncUrl(pair.url);
+                  setSyncToken(pair.token);
+                  Toast.show({ type: 'success', text1: 'Pairing URL detected' });
+                } else {
+                  setSyncUrl(v);
+                }
+              }}
               autoCorrect={false}
               autoCapitalize="none"
             />

@@ -1,7 +1,9 @@
 import http from 'http';
 import crypto from 'crypto';
 import os from 'os';
-import { app } from 'electron';
+import path from 'path';
+import { app, shell } from 'electron';
+import QRCode from 'qrcode';
 import type { IDatabase } from './database.interface';
 import { collectBackup, restoreEnvelope } from './backup';
 import { logger } from './logger';
@@ -207,4 +209,60 @@ export function getSyncServerStatus(): {
     addresses: getLanAddresses(),
     hasToken: currentToken.length > 0,
   };
+}
+
+/**
+ * Build the pairing URL that mobile scans / pastes.
+ * Format: `envoy://sync?url=<http-endpoint>&token=<token>` — mobile side
+ * parses both fields with a single URL constructor call.
+ */
+export function buildPairingUrl(endpoint: string, token: string): string {
+  return `envoy://sync?url=${encodeURIComponent(endpoint)}&token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * Renders a QR code containing the pairing URL, writes it to
+ * userData/sync-qr.png, and hands it off to the OS image viewer.
+ * Users scan with any modern phone camera and paste the decoded string
+ * into Envoy Mobile's LAN Sync section, which auto-parses url + token.
+ */
+export async function generateAndOpenPairingQr(): Promise<{
+  success: boolean;
+  path?: string;
+  pairingUrl?: string;
+  error?: string;
+}> {
+  if (!server) {
+    return { success: false, error: 'LAN sync server is not running' };
+  }
+  const addresses = getLanAddresses();
+  if (addresses.length === 0) {
+    return { success: false, error: 'No LAN address detected' };
+  }
+  if (!currentToken) {
+    return { success: false, error: 'No token set' };
+  }
+
+  const endpoint = `http://${addresses[0]}:${currentPort}`;
+  const pairingUrl = buildPairingUrl(endpoint, currentToken);
+  const outputPath = path.join(app.getPath('userData'), 'sync-qr.png');
+
+  try {
+    await QRCode.toFile(outputPath, pairingUrl, {
+      errorCorrectionLevel: 'M',
+      width: 512,
+      margin: 2,
+    });
+    const errMsg = await shell.openPath(outputPath);
+    if (errMsg) {
+      logger.warn('Could not open QR image with default viewer', { errMsg });
+    }
+    return { success: true, path: outputPath, pairingUrl };
+  } catch (err) {
+    logger.error('generateAndOpenPairingQr failed', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'QR generation failed',
+    };
+  }
 }

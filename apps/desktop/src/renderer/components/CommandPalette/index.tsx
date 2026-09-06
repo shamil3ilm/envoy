@@ -542,6 +542,30 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       section: 'actions',
     },
     {
+      id: 'action-sync-qr',
+      title: 'Show LAN Sync QR Code',
+      description: 'Open a scannable QR of the pairing URL + token',
+      icon: <Workflow className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.sync.showQr();
+          if (result.success) {
+            // eslint-disable-next-line no-console
+            console.info('QR opened', { path: result.path, url: result.pairingUrl });
+          } else {
+            // eslint-disable-next-line no-console
+            console.error('QR failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('QR failed', err);
+        }
+      },
+      keywords: ['qr', 'sync', 'lan', 'pair', 'scan', 'mobile'],
+      section: 'actions',
+    },
+    {
       id: 'action-sync-status',
       title: 'Show LAN Sync Info',
       description: 'Log current sync server address, token, and status',
