@@ -164,6 +164,33 @@ export default function SettingsScreen() {
     );
   }, [db, ready, restoreJson, restoreSummary]);
 
+  const [checkingIntegrity, setCheckingIntegrity] = useState(false);
+  const runIntegrityCheck = useCallback(async () => {
+    if (!ready || !db) {
+      Alert.alert('Database not ready yet');
+      return;
+    }
+    setCheckingIntegrity(true);
+    try {
+      const result = await db.checkIntegrity();
+      if (result.ok) {
+        Toast.show({ type: 'success', text1: 'Database integrity OK' });
+      } else {
+        Alert.alert(
+          'Integrity issues found',
+          result.issues.length > 0
+            ? result.issues.slice(0, 5).join('\n')
+            : 'PRAGMA integrity_check reported problems.'
+        );
+      }
+    } catch (err) {
+      console.error('Integrity check failed', err);
+      Alert.alert('Integrity check failed', err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setCheckingIntegrity(false);
+    }
+  }, [db, ready]);
+
   const toggleSection = useCallback((section: SettingsSection) => {
     setExpandedSection(prev => prev === section ? null : section);
   }, []);
@@ -461,6 +488,36 @@ export default function SettingsScreen() {
                 </View>
               </View>
             )}
+          </View>
+        </View>
+
+        {/* Diagnostics Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
+              <View style={[styles.iconBox, { backgroundColor: '#fef3c7' }]}>
+                <Text style={styles.iconEmoji}>🩺</Text>
+              </View>
+              <View style={styles.sectionHeaderText}>
+                <Text style={styles.sectionTitle}>Diagnostics</Text>
+                <Text style={styles.sectionSubtitle}>Check that the on-device DB is healthy</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.sectionContent}>
+            <TouchableOpacity
+              style={[styles.restoreOpenButton, checkingIntegrity && styles.exportButtonDisabled]}
+              onPress={runIntegrityCheck}
+              disabled={checkingIntegrity}
+            >
+              <Text style={styles.restoreOpenText}>
+                {checkingIntegrity ? 'Checking…' : 'Run integrity check'}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.exportHint}>
+              Runs PRAGMA integrity_check on the SQLite file. If issues surface,
+              restore from a recent backup and report the details.
+            </Text>
           </View>
         </View>
 
