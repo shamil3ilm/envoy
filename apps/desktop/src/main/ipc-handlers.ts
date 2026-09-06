@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from './services/logger';
 import { buildMailtoUrl, isSafeExternalUrl, isSafeUwpFamilyName, sanitizeEmail } from './services/security';
-import { collectBackup, writeBackupFile } from './services/backup';
+import { collectBackup, inspectBackupFile, restoreEnvelope, writeBackupFile } from './services/backup';
 import {
   csvImportPath,
   csvExportPath,
@@ -2074,6 +2074,101 @@ export function registerIpcHandlers(
       return {
         success: false,
         error: err instanceof Error ? err.message : 'Backup failed',
+      };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.BACKUP_INSPECT, async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        title: 'Inspect Envoy backup',
+        filters: [{ name: 'Envoy backup', extensions: ['json'] }],
+        properties: ['openFile'],
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, cancelled: true };
+      }
+      const filePath = result.filePaths[0];
+      const summary = inspectBackupFile(filePath);
+      return { success: true, path: filePath, summary };
+    } catch (err) {
+      logger.error('BACKUP_INSPECT failed', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Inspect failed',
+      };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.BACKUP_RESTORE, async () => {
+    try {
+      const picked = await dialog.showOpenDialog({
+        title: 'Restore Envoy backup',
+        filters: [{ name: 'Envoy backup', extensions: ['json'] }],
+        properties: ['openFile'],
+      });
+      if (picked.canceled || picked.filePaths.length === 0) {
+        return { success: false, cancelled: true };
+      }
+      const filePath = picked.filePaths[0];
+
+      const summary = inspectBackupFile(filePath);
+      const confirm = await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Restore Envoy backup?',
+        message: `Merge ${summary.totalRecords} records from this backup into the current database?`,
+        detail:
+          `Exported: ${summary.exportedAt}\n` +
+          `From app version: ${summary.appVersion}\n\n` +
+          'Existing entries with the same ID will be updated in place.\n' +
+          'Nothing will be deleted. A safety backup is written first.',
+        buttons: ['Cancel', 'Restore'],
+        defaultId: 0,
+        cancelId: 0,
+      });
+      if (confirm.response !== 1) {
+        return { success: false, cancelled: true };
+      }
+
+      // Pre-restore snapshot lands in the same backups/ directory as
+      // migration snapshots so users can find it later.
+      const preRestorePath: string = path.join(
+        app.getPath('userData'),
+        'backups',
+        `envoy-pre-restore-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+      );
+      try {
+        const preRestore = await collectBackup(database);
+        await writeBackupFile(preRestorePath, preRestore);
+      } catch (err) {
+        logger.warn('Pre-restore snapshot failed — aborting restore', err);
+        return {
+          success: false,
+          error: 'Could not write pre-restore snapshot',
+        };
+      }
+
+      const raw = fs.readFileSync(filePath, 'utf8');
+      const envelope = JSON.parse(raw);
+      const result = await restoreEnvelope(database as any, envelope);
+
+      logger.info('Backup restored', {
+        totalApplied: result.totalApplied,
+        preRestorePath,
+      });
+
+      return {
+        success: true,
+        applied: result.applied,
+        skipped: result.skipped,
+        totalApplied: result.totalApplied,
+        preRestorePath,
+      };
+    } catch (err) {
+      logger.error('BACKUP_RESTORE failed', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Restore failed',
       };
     }
   });
