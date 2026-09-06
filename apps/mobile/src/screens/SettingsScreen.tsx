@@ -94,6 +94,16 @@ export default function SettingsScreen() {
         text1: `Exported ${total} records`,
         text2: 'Save the JSON somewhere safe.',
       });
+      try {
+        await db.createActivityLog({
+          action: 'backup_exported',
+          category: 'system',
+          description: `Exported ${total} records via share sheet`,
+          details: { counts: envelope.counts, mode: 'manual' },
+        });
+      } catch (err) {
+        console.warn('Failed to log backup export', err);
+      }
     } catch (err) {
       console.error('Export backup failed', err);
       Alert.alert('Could not export data');
@@ -149,6 +159,20 @@ export default function SettingsScreen() {
                     ? 'Some rows were skipped (check console)'
                     : undefined,
               });
+              try {
+                await db.createActivityLog({
+                  action: 'backup_restored',
+                  category: 'system',
+                  description: `Restored ${result.totalApplied} records from pasted JSON`,
+                  details: {
+                    applied: result.applied,
+                    skipped: result.skipped,
+                    mode: 'manual-paste',
+                  },
+                });
+              } catch (err) {
+                console.warn('Failed to log backup restore', err);
+              }
               setRestoreOpen(false);
               setRestoreJson('');
               setRestoreSummary(null);
