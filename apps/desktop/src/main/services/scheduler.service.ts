@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { logger } from './logger';
 import type { DatabaseService } from './database';
 import type { EmailService } from './email.service';
 import type { TeamsService } from './teams.service';
@@ -34,7 +35,7 @@ export class SchedulerService extends EventEmitter {
     if (this.isRunning) return;
 
     this.isRunning = true;
-    console.log('Scheduler service started');
+    logger.info('Scheduler service started');
 
     // Initial check
     this.checkAndSendDueMessages();
@@ -51,7 +52,7 @@ export class SchedulerService extends EventEmitter {
       this.checkInterval = null;
     }
     this.isRunning = false;
-    console.log('Scheduler service stopped');
+    logger.info('Scheduler service stopped');
   }
 
   private async checkAndSendDueMessages(): Promise<void> {
@@ -62,12 +63,12 @@ export class SchedulerService extends EventEmitter {
         await this.processScheduledMessage(message);
       }
     } catch (error) {
-      console.error('Scheduler check failed:', error);
+      logger.error('Scheduler check failed:', error);
     }
   }
 
   private async processScheduledMessage(message: ScheduledMessage): Promise<void> {
-    console.log(`Processing scheduled message: ${message.id}`);
+    logger.info(`Processing scheduled message: ${message.id}`);
 
     try {
       // Get template
@@ -113,7 +114,7 @@ export class SchedulerService extends EventEmitter {
       if (successCount === recipients.length) {
         await this.database.updateScheduledMessage(message.id, { status: 'sent' });
         this.emit('message:sent', message.id, successCount);
-        console.log(`Scheduled message ${message.id} sent to ${successCount} recipients`);
+        logger.info(`Scheduled message ${message.id} sent to ${successCount} recipients`);
       } else if (successCount > 0) {
         // Partial success - mark as sent but with error info
         await this.database.updateScheduledMessage(message.id, {
@@ -121,7 +122,7 @@ export class SchedulerService extends EventEmitter {
           errorMessage: `Partial: ${successCount} sent, ${failCount} failed`,
         });
         this.emit('message:partial', message.id, successCount, failCount);
-        console.log(`Scheduled message ${message.id} partially sent: ${successCount} success, ${failCount} failed`);
+        logger.info(`Scheduled message ${message.id} partially sent: ${successCount} success, ${failCount} failed`);
       } else {
         await this.markMessageFailed(message.id, errors.join('; '));
       }
@@ -152,7 +153,7 @@ export class SchedulerService extends EventEmitter {
       try {
         renderedSubject = await this.pythonBridge.renderTemplate(renderedSubject, data);
       } catch (err) {
-        console.error('Failed to render subject:', err);
+        logger.error('Failed to render subject:', err);
       }
     }
 
@@ -161,7 +162,7 @@ export class SchedulerService extends EventEmitter {
     try {
       renderedBody = await this.pythonBridge.renderTemplate(template.body, data);
     } catch (err) {
-      console.error('Failed to render body:', err);
+      logger.error('Failed to render body:', err);
     }
 
     // Send based on channel
@@ -239,6 +240,6 @@ export class SchedulerService extends EventEmitter {
       errorMessage: error,
     });
     this.emit('message:failed', id, error);
-    console.error(`Scheduled message ${id} failed: ${error}`);
+    logger.error(`Scheduled message ${id} failed: ${error}`);
   }
 }

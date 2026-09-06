@@ -3,6 +3,8 @@ import { app } from 'electron';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
+import { logger } from './logger';
+import { encryptSecret, decryptSecret, isEncrypted } from './secure-storage';
 import type {
   Template,
   CreateTemplateInput,
@@ -104,8 +106,8 @@ export class SQLiteDatabaseService {
     // Run migrations
     await this.runMigrations();
 
-    console.log(`Database initialized at: ${this.dataPath}`);
-    console.log(`Files stored at: ${this.filesPath}`);
+    logger.info(`Database initialized at: ${this.dataPath}`);
+    logger.info(`Files stored at: ${this.filesPath}`);
   }
 
   getFilesPath(): string {
@@ -459,22 +461,74 @@ export class SQLiteDatabaseService {
       .all()
       .map((row: any) => row.name);
 
-    for (const migration of migrations) {
-      if (!appliedMigrations.includes(migration.name)) {
-        console.log(`Applying migration: ${migration.name}`);
+    const pending = migrations.filter((m) => !appliedMigrations.includes(m.name));
 
-        const transaction = this.db.transaction(() => {
-          for (const statement of migration.statements) {
-            this.db!.exec(statement);
-          }
-          this.db!
-            .prepare('INSERT INTO migrations (name) VALUES (?)')
-            .run(migration.name);
-        });
+    if (pending.length > 0) {
+      const backupPath = await this.backupDatabaseFile('pre-migration');
+      logger.info('Pending migrations detected', { count: pending.length, backupPath });
 
-        transaction();
-        console.log(`Migration ${migration.name} applied successfully`);
+      for (const migration of pending) {
+        logger.info('Applying migration', { name: migration.name });
+        try {
+          const transaction = this.db.transaction(() => {
+            for (const statement of migration.statements) {
+              this.db!.exec(statement);
+            }
+            this.db!
+              .prepare('INSERT INTO migrations (name) VALUES (?)')
+              .run(migration.name);
+          });
+          transaction();
+          logger.info('Migration applied', { name: migration.name });
+        } catch (err) {
+          logger.error('Migration failed', { name: migration.name, backupPath, err });
+          throw new Error(
+            `Migration "${migration.name}" failed. Database was backed up to ${backupPath} before this run. Restore that file to recover.`
+          );
+        }
       }
+    }
+
+    // Opportunistically re-encrypt any legacy plaintext credentials.
+    // Idempotent — isEncrypted() short-circuits already-encrypted rows.
+    try {
+      this.encryptLegacyEmailCredentials();
+    } catch (err) {
+      logger.error('Legacy credential upgrade failed', err);
+    }
+  }
+
+  private async backupDatabaseFile(tag: string): Promise<string> {
+    const backupDir = path.join(path.dirname(this.dataPath), 'backups');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupPath = path.join(backupDir, `envoy-${tag}-${stamp}.db`);
+    fs.copyFileSync(this.dataPath, backupPath);
+    return backupPath;
+  }
+
+  private encryptLegacyEmailCredentials(): void {
+    if (!this.db) return;
+    const rows = this.db
+      .prepare('SELECT id, smtp_pass, oauth_tokens FROM email_accounts')
+      .all() as Array<{ id: string; smtp_pass: string | null; oauth_tokens: string | null }>;
+
+    const update = this.db.prepare(
+      'UPDATE email_accounts SET smtp_pass = COALESCE(?, smtp_pass), oauth_tokens = COALESCE(?, oauth_tokens) WHERE id = ?'
+    );
+
+    for (const row of rows) {
+      const needSmtp = row.smtp_pass && !isEncrypted(row.smtp_pass);
+      const needOauth = row.oauth_tokens && !isEncrypted(row.oauth_tokens);
+      if (!needSmtp && !needOauth) continue;
+      update.run(
+        needSmtp ? encryptSecret(row.smtp_pass) : null,
+        needOauth ? encryptSecret(row.oauth_tokens) : null,
+        row.id
+      );
+      logger.info('Encrypted legacy email credential row', { id: row.id });
     }
   }
 
@@ -997,6 +1051,10 @@ export class SQLiteDatabaseService {
       this.db.prepare('UPDATE email_accounts SET is_default = 0').run();
     }
 
+    const cfg = (account.config as any) || {};
+    const encryptedPassword = encryptSecret(cfg.password || null);
+    const encryptedOauth = cfg.accessToken ? encryptSecret(JSON.stringify(cfg)) : null;
+
     this.db.prepare(`
       INSERT INTO email_accounts (
         id, email, provider, display_name, is_default,
@@ -1009,12 +1067,12 @@ export class SQLiteDatabaseService {
       account.type,
       account.fromName || account.name,
       account.isDefault ? 1 : 0,
-      (account.config as any)?.host || null,
-      (account.config as any)?.port || null,
-      (account.config as any)?.secure ? 1 : 0,
-      (account.config as any)?.user || null,
-      (account.config as any)?.password || null,
-      (account.config as any)?.accessToken ? JSON.stringify(account.config) : null,
+      cfg.host || null,
+      cfg.port || null,
+      cfg.secure ? 1 : 0,
+      cfg.user || null,
+      encryptedPassword,
+      encryptedOauth,
       now
     );
 
@@ -1059,13 +1117,11 @@ export class SQLiteDatabaseService {
     if (update.config !== undefined) {
       const cfg = update.config as any;
       if (cfg.host) {
-        // SMTP config
         updates.push('smtp_host = ?', 'smtp_port = ?', 'smtp_secure = ?', 'smtp_user = ?', 'smtp_pass = ?');
-        values.push(cfg.host, cfg.port, cfg.secure ? 1 : 0, cfg.user, cfg.password);
+        values.push(cfg.host, cfg.port, cfg.secure ? 1 : 0, cfg.user, encryptSecret(cfg.password || null));
       } else if (cfg.accessToken) {
-        // OAuth config
         updates.push('oauth_tokens = ?');
-        values.push(JSON.stringify(cfg));
+        values.push(encryptSecret(JSON.stringify(cfg)));
       }
     }
 
@@ -1083,7 +1139,6 @@ export class SQLiteDatabaseService {
   }
 
   private mapEmailAccount(row: any): EmailAccount {
-    // Build config based on what's stored
     let config: any;
     if (row.smtp_host) {
       config = {
@@ -1091,10 +1146,21 @@ export class SQLiteDatabaseService {
         port: row.smtp_port,
         secure: Boolean(row.smtp_secure),
         user: row.smtp_user,
-        password: row.smtp_pass,
+        password: decryptSecret(row.smtp_pass),
       };
     } else if (row.oauth_tokens) {
-      config = JSON.parse(row.oauth_tokens);
+      const decrypted = decryptSecret(row.oauth_tokens);
+      try {
+        config = decrypted ? JSON.parse(decrypted) : {};
+      } catch (err) {
+        logger.error('Failed to parse oauth_tokens', { id: row.id, err });
+        config = {};
+      }
+    }
+
+    if (row.smtp_pass && !isEncrypted(row.smtp_pass)) {
+      // Lazy re-encrypt legacy plaintext row on next write; log the drift.
+      logger.warn('Email account has plaintext smtp_pass — will be re-encrypted on next save', { id: row.id });
     }
 
     return {
@@ -2531,7 +2597,7 @@ export class SQLiteDatabaseService {
 
     // Use SQLite's backup API
     await this.db.backup(backupPath);
-    console.log(`Database backed up to: ${backupPath}`);
+    logger.info(`Database backed up to: ${backupPath}`);
   }
 
   async getDatabaseSize(): Promise<number> {

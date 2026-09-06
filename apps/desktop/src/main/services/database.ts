@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from './logger';
 import type {
   Template,
   CreateTemplateInput,
@@ -378,7 +379,7 @@ export class DatabaseService {
 
     for (const migration of migrations) {
       if (!appliedMigrations.includes(migration.name)) {
-        console.log(`Applying migration: ${migration.name}`);
+        logger.info(`Applying migration: ${migration.name}`);
         for (const statement of migration.statements) {
           await this.pool.execute(statement);
         }
@@ -946,14 +947,14 @@ export class DatabaseService {
   async setSettings(settings: Partial<AppSettings>): Promise<AppSettings> {
     try {
       for (const [key, value] of Object.entries(settings)) {
-        console.log(`[Database] Saving setting: ${key} =`, JSON.stringify(value).substring(0, 100));
+        logger.info(`[Database] Saving setting: ${key} =`, JSON.stringify(value).substring(0, 100));
         await this.setSetting(key, value);
       }
       const result = await this.getSettings();
-      console.log('[Database] Settings saved successfully. Preferences:', result.preferences);
+      logger.info('[Database] Settings saved successfully. Preferences:', result.preferences);
       return result;
     } catch (error) {
-      console.error('[Database] Error saving settings:', error);
+      logger.error('[Database] Error saving settings:', error);
       throw error;
     }
   }

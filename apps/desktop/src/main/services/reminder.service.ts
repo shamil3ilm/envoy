@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { Notification, BrowserWindow } from 'electron';
+import { logger } from './logger';
 import type { IDatabase } from './database.interface';
 import type { Reminder } from '../../shared/types';
 
@@ -23,7 +24,7 @@ export class ReminderService extends EventEmitter {
     if (this.isRunning) return;
 
     this.isRunning = true;
-    console.log('Reminder service started');
+    logger.info('Reminder service started');
 
     // Initial check
     this.checkDueReminders();
@@ -40,7 +41,7 @@ export class ReminderService extends EventEmitter {
       this.checkInterval = null;
     }
     this.isRunning = false;
-    console.log('Reminder service stopped');
+    logger.info('Reminder service stopped');
   }
 
   private async checkDueReminders(): Promise<void> {
@@ -51,12 +52,12 @@ export class ReminderService extends EventEmitter {
         await this.processReminder(reminder);
       }
     } catch (error) {
-      console.error('Reminder check failed:', error);
+      logger.error('Reminder check failed:', error);
     }
   }
 
   private async processReminder(reminder: Reminder): Promise<void> {
-    console.log(`Processing due reminder: ${reminder.id} - ${reminder.title}`);
+    logger.info(`Processing due reminder: ${reminder.id} - ${reminder.title}`);
 
     // Show native notification
     this.showNativeNotification(reminder);
@@ -73,7 +74,7 @@ export class ReminderService extends EventEmitter {
 
   private showNativeNotification(reminder: Reminder): void {
     if (!Notification.isSupported()) {
-      console.warn('Native notifications not supported on this platform');
+      logger.warn('Native notifications not supported on this platform');
       return;
     }
 
@@ -133,7 +134,7 @@ export class ReminderService extends EventEmitter {
       snoozedUntil,
     });
     this.emit('reminder:snoozed', reminderId, snoozedUntil);
-    console.log(`Reminder ${reminderId} snoozed until ${snoozedUntil}`);
+    logger.info(`Reminder ${reminderId} snoozed until ${snoozedUntil}`);
     return updated;
   }
 
@@ -147,13 +148,13 @@ export class ReminderService extends EventEmitter {
       status: 'completed',
     });
     this.emit('reminder:completed', reminderId);
-    console.log(`Reminder ${reminderId} completed`);
+    logger.info(`Reminder ${reminderId} completed`);
 
     // Auto-create next occurrence for repeating reminders
     if (reminder.repeatSchedule) {
       const next = await this.database.createNextOccurrence(reminder);
       if (next) {
-        console.log(`Created next occurrence: ${next.id} due at ${next.dueAt}`);
+        logger.info(`Created next occurrence: ${next.id} due at ${next.dueAt}`);
       }
     }
 
@@ -170,13 +171,13 @@ export class ReminderService extends EventEmitter {
       status: 'dismissed',
     });
     this.emit('reminder:dismissed', reminderId);
-    console.log(`Reminder ${reminderId} dismissed`);
+    logger.info(`Reminder ${reminderId} dismissed`);
 
     // Auto-create next occurrence for repeating reminders
     if (reminder.repeatSchedule) {
       const next = await this.database.createNextOccurrence(reminder);
       if (next) {
-        console.log(`Created next occurrence: ${next.id} due at ${next.dueAt}`);
+        logger.info(`Created next occurrence: ${next.id} due at ${next.dueAt}`);
       }
     }
 

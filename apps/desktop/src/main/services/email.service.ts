@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { logger } from './logger';
 import type {
   EmailAccount,
   SMTPConfig,
@@ -236,7 +237,7 @@ export class EmailService {
           this.defaultAccountId = account.id;
         }
       } catch (err) {
-        console.error(`Failed to load email account ${account.name}:`, err);
+        logger.error(`Failed to load email account ${account.name}:`, err);
       }
     }
   }
