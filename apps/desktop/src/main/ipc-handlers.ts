@@ -11,6 +11,7 @@ import * as path from 'path';
 import { logger } from './services/logger';
 import { buildMailtoUrl, isSafeExternalUrl, isSafeUwpFamilyName, sanitizeEmail } from './services/security';
 import { collectBackup, inspectBackupFile, restoreEnvelope, writeBackupFile } from './services/backup';
+import { getAutoBackupStatus, startAutoBackup } from './services/backup-scheduler';
 import {
   csvImportPath,
   csvExportPath,
@@ -2099,6 +2100,39 @@ export function registerIpcHandlers(
       };
     }
   });
+
+  ipcMain.handle(IPC_CHANNELS.BACKUP_AUTO_STATUS, async () => {
+    return { success: true, ...getAutoBackupStatus() };
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.BACKUP_AUTO_SET,
+    async (
+      _event,
+      params: { enabled: boolean; intervalHours?: number; keepCount?: number }
+    ) => {
+      try {
+        const current = await database.getSettings();
+        const next = {
+          ...(current as any),
+          autoBackup: {
+            enabled: !!params.enabled,
+            intervalHours: params.intervalHours ?? (current as any).autoBackup?.intervalHours ?? 24,
+            keepCount: params.keepCount ?? (current as any).autoBackup?.keepCount ?? 7,
+          },
+        };
+        await database.setSettings(next);
+        startAutoBackup(database, next.autoBackup);
+        return { success: true, autoBackup: next.autoBackup };
+      } catch (err) {
+        logger.error('BACKUP_AUTO_SET failed', err);
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Could not update auto-backup',
+        };
+      }
+    }
+  );
 
   ipcMain.handle(IPC_CHANNELS.BACKUP_RESTORE, async () => {
     try {

@@ -223,6 +223,111 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       keywords: ['backup', 'export', 'save', 'download', 'json'],
       section: 'actions',
     },
+    {
+      id: 'action-backup-inspect',
+      title: 'Inspect Backup File',
+      description: 'Preview a backup file without applying it',
+      icon: <FileText className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.backup.inspect();
+          if (result.success) {
+            // eslint-disable-next-line no-console
+            console.info(
+              `Backup at ${result.path}: ${result.summary.totalRecords} records exported ${result.summary.exportedAt}`,
+              result.summary.counts
+            );
+          } else if (!result.cancelled && result.error) {
+            // eslint-disable-next-line no-console
+            console.error('Inspect failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Backup inspect failed', err);
+        }
+      },
+      keywords: ['backup', 'inspect', 'preview', 'validate', 'check'],
+      section: 'actions',
+    },
+    {
+      id: 'action-backup-restore',
+      title: 'Restore From Backup',
+      description: 'Merge a JSON backup into the current database',
+      icon: <FileText className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.backup.restore();
+          if (result.success) {
+            // eslint-disable-next-line no-console
+            console.info(
+              `Restored ${result.totalApplied} records. Safety snapshot: ${result.preRestorePath ?? '(none)'}`
+            );
+          } else if (!result.cancelled && result.error) {
+            // eslint-disable-next-line no-console
+            console.error('Restore failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Backup restore failed', err);
+        }
+      },
+      keywords: ['backup', 'restore', 'import', 'merge', 'recover'],
+      section: 'actions',
+    },
+    {
+      id: 'action-backup-auto-enable',
+      title: 'Enable Auto-Backup (Daily)',
+      description: 'Write a JSON backup once per day; keep the newest 7',
+      icon: <Clock className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.backup.autoSet({
+            enabled: true,
+            intervalHours: 24,
+            keepCount: 7,
+          });
+          if (result.success) {
+            // eslint-disable-next-line no-console
+            console.info('Auto-backup enabled', result.autoBackup);
+          } else {
+            // eslint-disable-next-line no-console
+            console.error('Enable auto-backup failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Enable auto-backup failed', err);
+        }
+      },
+      keywords: ['backup', 'auto', 'schedule', 'daily', 'enable'],
+      section: 'actions',
+    },
+    {
+      id: 'action-backup-auto-disable',
+      title: 'Disable Auto-Backup',
+      description: 'Stop the scheduled backup job',
+      icon: <Clock className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.backup.autoSet({ enabled: false });
+          if (result.success) {
+            // eslint-disable-next-line no-console
+            console.info('Auto-backup disabled');
+          } else {
+            // eslint-disable-next-line no-console
+            console.error('Disable auto-backup failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Disable auto-backup failed', err);
+        }
+      },
+      keywords: ['backup', 'auto', 'schedule', 'disable', 'stop'],
+      section: 'actions',
+    },
   ];
 
   const filteredCommands = commands.filter((cmd) => {
