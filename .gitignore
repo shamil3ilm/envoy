@@ -59,6 +59,12 @@ credentials.json
 token.json
 *.pem
 *.key
+*.jks
+*.keystore
+apps/mobile/android/keystore.properties
+apps/mobile/android/app/*.jks
+apps/mobile/android/app/*.keystore
+apps/desktop/build/certs/
 
 # Misc
 nul
