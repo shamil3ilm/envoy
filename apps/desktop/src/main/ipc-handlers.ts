@@ -14,7 +14,13 @@ import { collectBackup, inspectBackupFile, restoreEnvelope, writeBackupFile } fr
 import { getAutoBackupStatus, newestAutoBackupPath, startAutoBackup } from './services/backup-scheduler';
 import { collectDebugInfo, collectStorageStats, openBackupsFolder, runDatabaseIntegrityCheck, runDatabaseVacuum } from './services/diagnostics';
 import { logBackupEvent } from './services/backup-audit';
-import { generateToken, getSyncServerStatus, startSyncServer, stopSyncServer } from './services/sync-server';
+import {
+  generateAndOpenPairingQr,
+  generateToken,
+  getSyncServerStatus,
+  startSyncServer,
+  stopSyncServer,
+} from './services/sync-server';
 import {
   csvImportPath,
   csvExportPath,
@@ -2185,6 +2191,10 @@ export function registerIpcHandlers(
       logger.error('SYNC_DISABLE failed', err);
       return { success: false, error: err instanceof Error ? err.message : 'Disable failed' };
     }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SYNC_SHOW_QR, async () => {
+    return generateAndOpenPairingQr();
   });
 
   ipcMain.handle(IPC_CHANNELS.SYNC_REGENERATE_TOKEN, async () => {

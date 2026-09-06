@@ -47,6 +47,7 @@ vi.mock('./backup', () => ({
 }));
 
 import {
+  buildPairingUrl,
   generateToken,
   getLanAddresses,
   getSyncServerStatus,
@@ -212,5 +213,25 @@ describe('startSyncServer', () => {
     stopSyncServer();
     // Next ping attempt should fail-fast (connection refused).
     await expect(request(47834, '/envoy/v1/ping')).rejects.toBeTruthy();
+  });
+});
+
+describe('buildPairingUrl', () => {
+  it('URL-encodes both fields into the envoy://sync scheme', () => {
+    const result = buildPairingUrl('http://192.168.1.42:47828', 'abc123');
+    expect(result).toBe(
+      'envoy://sync?url=http%3A%2F%2F192.168.1.42%3A47828&token=abc123'
+    );
+  });
+
+  it('round-trips into a value parsable by URLSearchParams via the http shim', () => {
+    const endpoint = 'http://10.0.0.5:47828';
+    const token = 'token_with_special_/=+chars';
+    const raw = buildPairingUrl(endpoint, token);
+    // Same parse the mobile side runs (see parsePairingUrl in MobileSyncService).
+    const usable = raw.replace('envoy://', 'http://');
+    const parsed = new URL(usable);
+    expect(parsed.searchParams.get('url')).toBe(endpoint);
+    expect(parsed.searchParams.get('token')).toBe(token);
   });
 });

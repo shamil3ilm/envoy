@@ -583,6 +583,13 @@ const api = {
 
     regenerateToken: (): Promise<{ success: boolean; token?: string; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.SYNC_REGENERATE_TOKEN),
+
+    showQr: (): Promise<{
+      success: boolean;
+      path?: string;
+      pairingUrl?: string;
+      error?: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.SYNC_SHOW_QR),
   },
 
   // Automation Rules

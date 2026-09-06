@@ -109,3 +109,25 @@ export async function pushToDesktop(
 function trimTrailingSlash(url: string): string {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
+
+/**
+ * Parses the pairing string a desktop QR code encodes:
+ * `envoy://sync?url=<http-endpoint>&token=<token>`. Returns { url, token }
+ * on success or null if the input isn't a valid pairing URL.
+ */
+export function parsePairingUrl(raw: string): { url: string; token: string } | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('envoy://sync')) return null;
+  try {
+    // Replace the custom scheme so the URL constructor accepts it.
+    const usable = trimmed.replace('envoy://', 'http://');
+    const parsed = new URL(usable);
+    const url = parsed.searchParams.get('url');
+    const token = parsed.searchParams.get('token');
+    if (!url || !token) return null;
+    return { url, token };
+  } catch {
+    return null;
+  }
+}
