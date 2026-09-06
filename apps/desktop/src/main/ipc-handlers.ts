@@ -10,6 +10,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from './services/logger';
 import { buildMailtoUrl, isSafeExternalUrl, isSafeUwpFamilyName, sanitizeEmail } from './services/security';
+import {
+  csvImportPath,
+  csvExportPath,
+  soundUploadPath,
+  docxUploadInput,
+  openDialogOptions,
+  saveDialogOptions,
+  notificationSoundType,
+  validate,
+} from './services/ipc-validation';
 import type {
   CreateTemplateInput,
   CreateContactInput,
@@ -193,12 +203,17 @@ export function registerIpcHandlers(
   );
 
   ipcMain.handle(IPC_CHANNELS.CONTACT_IMPORT, async (_event, csvPath: string) => {
+    const check = validate(csvImportPath, csvPath);
+    if (!check.ok) {
+      logger.warn('CONTACT_IMPORT rejected', { error: check.error });
+      return { imported: 0, errors: [check.error] };
+    }
     const errors: string[] = [];
     let imported = 0;
 
     try {
       // Read the CSV file
-      const content = fs.readFileSync(csvPath, 'utf-8');
+      const content = fs.readFileSync(check.value, 'utf-8');
       const { headers, rows } = parseCSV(content);
 
       if (headers.length === 0) {
@@ -280,6 +295,12 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle(IPC_CHANNELS.CONTACT_EXPORT, async (_event, outputPath: string) => {
+    const check = validate(csvExportPath, outputPath);
+    if (!check.ok) {
+      logger.warn('CONTACT_EXPORT rejected', { error: check.error });
+      throw new Error(check.error);
+    }
+    outputPath = check.value;
     try {
       // Get all contacts
       const contacts: Contact[] = await database.listContacts();
@@ -737,6 +758,12 @@ export function registerIpcHandlers(
   // ============================================
 
   ipcMain.handle(IPC_CHANNELS.SOUND_UPLOAD, async (_event, type: NotificationSoundType) => {
+    const typeCheck = validate(notificationSoundType, type);
+    if (!typeCheck.ok) {
+      logger.warn('SOUND_UPLOAD rejected — invalid type', { error: typeCheck.error });
+      return null;
+    }
+
     const result = await dialog.showOpenDialog({
       title: 'Select Notification Sound',
       filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg'] }],
@@ -747,7 +774,12 @@ export function registerIpcHandlers(
       return null;
     }
 
-    const sourcePath = result.filePaths[0];
+    const pathCheck = validate(soundUploadPath, result.filePaths[0]);
+    if (!pathCheck.ok) {
+      logger.warn('SOUND_UPLOAD rejected — invalid source', { error: pathCheck.error });
+      return null;
+    }
+    const sourcePath = pathCheck.value;
     const soundsDir = path.join(app.getPath('userData'), 'sounds');
 
     if (!fs.existsSync(soundsDir)) {
@@ -755,7 +787,7 @@ export function registerIpcHandlers(
     }
 
     const ext = path.extname(sourcePath);
-    const destPath = path.join(soundsDir, `${type}${ext}`);
+    const destPath = path.join(soundsDir, `${typeCheck.value}${ext}`);
 
     fs.copyFileSync(sourcePath, destPath);
     return destPath;
@@ -789,10 +821,16 @@ export function registerIpcHandlers(
         defaultPath?: string;
       }
     ) => {
+      const check = validate(openDialogOptions, options ?? {});
+      if (!check.ok) {
+        logger.warn('DIALOG_OPEN_FILE rejected', { error: check.error });
+        return null;
+      }
+      const safe = check.value;
       const result = await dialog.showOpenDialog({
-        title: options.title || 'Select File',
-        filters: options.filters || [{ name: 'All Files', extensions: ['*'] }],
-        defaultPath: options.defaultPath,
+        title: safe.title || 'Select File',
+        filters: safe.filters || [{ name: 'All Files', extensions: ['*'] }],
+        defaultPath: safe.defaultPath,
         properties: ['openFile'],
       });
 
@@ -814,10 +852,16 @@ export function registerIpcHandlers(
         filters?: Array<{ name: string; extensions: string[] }>;
       }
     ) => {
+      const check = validate(saveDialogOptions, options ?? {});
+      if (!check.ok) {
+        logger.warn('DIALOG_SAVE_FILE rejected', { error: check.error });
+        return null;
+      }
+      const safe = check.value;
       const result = await dialog.showSaveDialog({
-        title: options.title || 'Save File',
-        defaultPath: options.defaultPath,
-        filters: options.filters || [{ name: 'All Files', extensions: ['*'] }],
+        title: safe.title || 'Save File',
+        defaultPath: safe.defaultPath,
+        filters: safe.filters || [{ name: 'All Files', extensions: ['*'] }],
       });
 
       if (result.canceled || !result.filePath) {
@@ -1423,6 +1467,12 @@ export function registerIpcHandlers(
         name: string;
       }
     ) => {
+      const check = validate(docxUploadInput, params);
+      if (!check.ok) {
+        logger.warn('DOCX_TEMPLATE_UPLOAD rejected', { error: check.error });
+        return { success: false, error: check.error };
+      }
+      params = check.value;
       try {
         // Validate source file exists
         if (!fs.existsSync(params.sourcePath)) {
