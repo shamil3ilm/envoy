@@ -566,6 +566,65 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       section: 'actions',
     },
     {
+      id: 'action-sync-copy-pairing-url',
+      title: 'Copy LAN Sync Pairing URL',
+      description: 'Copy envoy://sync?url=…&token=… — email it to your phone',
+      icon: <Workflow className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const qr = await window.envoy.sync.showQr();
+          if (qr.success && qr.pairingUrl) {
+            try {
+              await navigator.clipboard.writeText(qr.pairingUrl);
+              // eslint-disable-next-line no-console
+              console.info('Pairing URL copied', qr.pairingUrl);
+            } catch {
+              // eslint-disable-next-line no-console
+              console.info(qr.pairingUrl);
+            }
+          } else {
+            // eslint-disable-next-line no-console
+            console.error('Copy pairing URL failed:', qr.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Copy pairing URL failed', err);
+        }
+      },
+      keywords: ['sync', 'copy', 'pairing', 'url', 'clipboard', 'lan'],
+      section: 'actions',
+    },
+    {
+      id: 'action-sync-regenerate-token',
+      title: 'Rotate LAN Sync Token',
+      description: 'Generate a fresh token; every previously-paired device is revoked',
+      icon: <Workflow className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.sync.regenerateToken();
+          if (result.success && result.token) {
+            try {
+              await navigator.clipboard.writeText(result.token);
+            } catch {
+              /* clipboard may be blocked */
+            }
+            // eslint-disable-next-line no-console
+            console.info('New sync token', result.token);
+          } else {
+            // eslint-disable-next-line no-console
+            console.error('Rotate token failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Rotate token failed', err);
+        }
+      },
+      keywords: ['sync', 'token', 'rotate', 'regenerate', 'revoke', 'security'],
+      section: 'actions',
+    },
+    {
       id: 'action-sync-status',
       title: 'Show LAN Sync Info',
       description: 'Log current sync server address, token, and status',
