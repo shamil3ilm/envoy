@@ -20,7 +20,11 @@ import {
   restoreMobileBackup,
   type ParsedBackupSummary,
 } from '../services/BackupService';
-import { TextInput } from 'react-native';
+import {
+  collectMobileDebugInfo,
+  runMobileVacuum,
+} from '../services/MobileDiagnosticsService';
+import { Clipboard, TextInput } from 'react-native';
 import type {
   NotificationSoundType,
   NotificationSound,
@@ -212,6 +216,52 @@ export default function SettingsScreen() {
       Alert.alert('Integrity check failed', err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setCheckingIntegrity(false);
+    }
+  }, [db, ready]);
+
+  const [vacuuming, setVacuuming] = useState(false);
+  const runVacuum = useCallback(async () => {
+    if (!ready || !db) {
+      Alert.alert('Database not ready yet');
+      return;
+    }
+    setVacuuming(true);
+    try {
+      const result = await runMobileVacuum(db);
+      if (result.success) {
+        const freedMb = ((result.freedBytes ?? 0) / (1024 * 1024)).toFixed(2);
+        Toast.show({
+          type: 'success',
+          text1: `Compacted database`,
+          text2: `Reclaimed ${freedMb} MB`,
+        });
+      } else {
+        Alert.alert('Vacuum failed', result.error ?? 'Unknown error');
+      }
+    } catch (err) {
+      console.error('Vacuum failed', err);
+      Alert.alert('Vacuum failed', err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setVacuuming(false);
+    }
+  }, [db, ready]);
+
+  const copyDebugInfo = useCallback(async () => {
+    if (!ready || !db) {
+      Alert.alert('Database not ready yet');
+      return;
+    }
+    try {
+      const text = await collectMobileDebugInfo(db, '1.0.0');
+      Clipboard.setString(text);
+      Toast.show({
+        type: 'success',
+        text1: 'Debug info copied',
+        text2: 'Paste it into your support message.',
+      });
+    } catch (err) {
+      console.error('Copy debug info failed', err);
+      Alert.alert('Could not collect debug info');
     }
   }, [db, ready]);
 
@@ -541,6 +591,33 @@ export default function SettingsScreen() {
             <Text style={styles.exportHint}>
               Runs PRAGMA integrity_check on the SQLite file. If issues surface,
               restore from a recent backup and report the details.
+            </Text>
+
+            <View style={styles.restoreDivider} />
+
+            <TouchableOpacity
+              style={[styles.restoreOpenButton, vacuuming && styles.exportButtonDisabled]}
+              onPress={runVacuum}
+              disabled={vacuuming}
+            >
+              <Text style={styles.restoreOpenText}>
+                {vacuuming ? 'Compacting…' : 'Compact database (VACUUM)'}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.exportHint}>
+              Reclaims unused space inside the SQLite file. Safe to run any time
+              — no data is lost. Slower installs benefit most.
+            </Text>
+
+            <View style={styles.restoreDivider} />
+
+            <TouchableOpacity style={styles.restoreOpenButton} onPress={copyDebugInfo}>
+              <Text style={styles.restoreOpenText}>Copy debug info</Text>
+            </TouchableOpacity>
+            <Text style={styles.exportHint}>
+              Version, platform, DB size, and integrity — copied to the
+              clipboard for support tickets. No credentials or entities are
+              included.
             </Text>
           </View>
         </View>
