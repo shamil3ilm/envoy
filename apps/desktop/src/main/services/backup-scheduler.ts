@@ -166,6 +166,44 @@ export function newestAutoBackupPath(): string | null {
   return path.join(dir, files[files.length - 1]);
 }
 
+/**
+ * Runs a shutdown backup with a hard timeout so app quit is never delayed
+ * more than a couple of seconds. Skips when auto-backup is disabled, when
+ * a run already happened within the configured interval, or when the
+ * timeout fires first. Meant to be awaited in the app's before-quit hook.
+ */
+export async function runShutdownBackup(
+  db: IDatabase,
+  timeoutMs = 3000
+): Promise<{ ran: boolean; reason?: string }> {
+  if (!currentOptions.enabled) return { ran: false, reason: 'disabled' };
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finalize = (result: { ran: boolean; reason?: string }) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    const timer = setTimeout(() => {
+      logger.warn('Shutdown backup timed out');
+      finalize({ ran: false, reason: 'timeout' });
+    }, timeoutMs);
+
+    runAutoBackupIfDue(db, currentOptions)
+      .then((result) => {
+        clearTimeout(timer);
+        finalize({ ran: result.ran, reason: result.reason });
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        logger.error('Shutdown backup failed', err);
+        finalize({ ran: false, reason: 'error' });
+      });
+  });
+}
+
 export function _testResetState(): void {
   stopAutoBackup();
   currentOptions = { ...DEFAULT_OPTIONS };

@@ -17,6 +17,8 @@ import {
   newestAutoBackupPath,
   rotateOldBackups,
   runAutoBackupIfDue,
+  runShutdownBackup,
+  startAutoBackup,
   _testExports,
   _testResetState,
 } from './backup-scheduler';
@@ -157,5 +159,54 @@ describe('newestAutoBackupPath', () => {
     expect(path.basename(newestAutoBackupPath()!)).toBe(
       'auto-2026-01-01-000000-000Z.json'
     );
+  });
+});
+
+describe('runShutdownBackup', () => {
+  it('short-circuits when auto-backup is disabled', async () => {
+    const db = makeStubDb();
+    const result = await runShutdownBackup(db as never);
+    expect(result).toEqual({ ran: false, reason: 'disabled' });
+  });
+
+  it('runs a backup when enabled and interval has elapsed', async () => {
+    const db = makeStubDb();
+    startAutoBackup(db as never, { enabled: true, intervalHours: 24, keepCount: 7 });
+    // Wipe the initial run's file so the shutdown backup sees the interval as elapsed.
+    const dir = _testExports.autoBackupDir();
+    for (const f of _testExports.listAutoBackups(dir)) {
+      fs.unlinkSync(path.join(dir, f));
+    }
+    const result = await runShutdownBackup(db as never);
+    expect(result.ran).toBe(true);
+  });
+
+  it('reports skip reason when a run has just completed', async () => {
+    const db = makeStubDb();
+    startAutoBackup(db as never, { enabled: true, intervalHours: 24, keepCount: 7 });
+    // Let the startup run land, then shut down — should be within interval.
+    await new Promise((r) => setTimeout(r, 20));
+    const result = await runShutdownBackup(db as never);
+    expect(result.ran).toBe(false);
+    expect(result.reason).toBe('not yet due');
+  });
+
+  it('resolves within the timeout even if the write hangs', async () => {
+    const hangingDb = {
+      ...makeStubDb(),
+      listContacts: () => new Promise(() => {}),
+    };
+    startAutoBackup(hangingDb as never, { enabled: true, intervalHours: 24, keepCount: 7 });
+    // Force interval elapsed.
+    const dir = _testExports.autoBackupDir();
+    for (const f of _testExports.listAutoBackups(dir)) {
+      fs.unlinkSync(path.join(dir, f));
+    }
+    const start = Date.now();
+    const result = await runShutdownBackup(hangingDb as never, 100);
+    const elapsed = Date.now() - start;
+    expect(result.ran).toBe(false);
+    expect(result.reason).toBe('timeout');
+    expect(elapsed).toBeLessThan(500);
   });
 });
