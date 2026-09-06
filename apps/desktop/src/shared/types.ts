@@ -650,6 +650,7 @@ export const IPC_CHANNELS = {
   BACKUP_RESTORE: 'backup:restore',
   BACKUP_AUTO_STATUS: 'backup:autoStatus',
   BACKUP_AUTO_SET: 'backup:autoSet',
+  BACKUP_RESTORE_LATEST_AUTO: 'backup:restoreLatestAuto',
 } as const;
 
 // ============================================

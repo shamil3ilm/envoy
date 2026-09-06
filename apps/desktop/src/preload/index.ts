@@ -513,6 +513,18 @@ const api = {
         }
       | { success: false; error?: string }
     > => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_AUTO_SET, params),
+
+    restoreLatestAuto: (): Promise<
+      | {
+          success: true;
+          source: string;
+          applied: Record<string, number>;
+          skipped: Record<string, number>;
+          totalApplied: number;
+          preRestorePath?: string;
+        }
+      | { success: false; cancelled?: boolean; error?: string }
+    > => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_RESTORE_LATEST_AUTO),
   },
 
   // Automation Rules

@@ -14,6 +14,7 @@ vi.mock('./logger', () => ({
 }));
 
 import {
+  newestAutoBackupPath,
   rotateOldBackups,
   runAutoBackupIfDue,
   _testExports,
@@ -128,5 +129,33 @@ describe('runAutoBackupIfDue', () => {
     const missing = path.join(os.tmpdir(), 'envoy-nonexistent-' + Date.now());
     const removed = rotateOldBackups(missing, 7);
     expect(removed).toBe(0);
+  });
+});
+
+describe('newestAutoBackupPath', () => {
+  it('returns null when there are no auto-backup files', () => {
+    expect(newestAutoBackupPath()).toBeNull();
+  });
+
+  it('returns the newest file by lexicographic sort', () => {
+    const dir = _testExports.autoBackupDir();
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'auto-2026-01-05-000000-000Z.json'), '{}');
+    fs.writeFileSync(path.join(dir, 'auto-2026-01-01-000000-000Z.json'), '{}');
+    fs.writeFileSync(path.join(dir, 'auto-2026-01-10-000000-000Z.json'), '{}');
+    const newest = newestAutoBackupPath();
+    expect(newest).not.toBeNull();
+    expect(path.basename(newest!)).toBe('auto-2026-01-10-000000-000Z.json');
+  });
+
+  it('ignores non-auto-prefixed files in the same directory', () => {
+    const dir = _testExports.autoBackupDir();
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'auto-2026-01-01-000000-000Z.json'), '{}');
+    fs.writeFileSync(path.join(dir, 'manual-export.json'), '{}');
+    fs.writeFileSync(path.join(dir, 'envoy-pre-restore-anything.json'), '{}');
+    expect(path.basename(newestAutoBackupPath()!)).toBe(
+      'auto-2026-01-01-000000-000Z.json'
+    );
   });
 });

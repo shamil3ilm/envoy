@@ -147,6 +147,18 @@ export function getAutoBackupStatus(): {
   };
 }
 
+/**
+ * Returns the absolute path to the newest auto-backup file, or null when
+ * no auto backups exist yet. Callers can pass this straight to
+ * inspectBackupFile / restoreEnvelope for one-click recovery.
+ */
+export function newestAutoBackupPath(): string | null {
+  const dir = autoBackupDir();
+  const files = listAutoBackups(dir);
+  if (files.length === 0) return null;
+  return path.join(dir, files[files.length - 1]);
+}
+
 export function _testResetState(): void {
   stopAutoBackup();
   currentOptions = { ...DEFAULT_OPTIONS };
