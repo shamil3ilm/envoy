@@ -11,7 +11,7 @@ import * as path from 'path';
 import { logger } from './services/logger';
 import { buildMailtoUrl, isSafeExternalUrl, isSafeUwpFamilyName, sanitizeEmail } from './services/security';
 import { collectBackup, inspectBackupFile, restoreEnvelope, writeBackupFile } from './services/backup';
-import { getAutoBackupStatus, startAutoBackup } from './services/backup-scheduler';
+import { getAutoBackupStatus, newestAutoBackupPath, startAutoBackup } from './services/backup-scheduler';
 import {
   csvImportPath,
   csvExportPath,
@@ -2133,6 +2133,75 @@ export function registerIpcHandlers(
       }
     }
   );
+
+  ipcMain.handle(IPC_CHANNELS.BACKUP_RESTORE_LATEST_AUTO, async () => {
+    try {
+      const filePath = newestAutoBackupPath();
+      if (!filePath) {
+        return {
+          success: false,
+          error: 'No auto-backup files found. Enable auto-backup first.',
+        };
+      }
+
+      const summary = inspectBackupFile(filePath);
+      const confirm = await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Restore latest auto-backup?',
+        message: `Merge ${summary.totalRecords} records from the newest scheduled backup?`,
+        detail:
+          `Source: ${filePath}\n` +
+          `Backup exported: ${summary.exportedAt}\n` +
+          `From app version: ${summary.appVersion}\n\n` +
+          'Existing entries with the same ID will be updated in place.\n' +
+          'Nothing will be deleted. A safety snapshot is written first.',
+        buttons: ['Cancel', 'Restore'],
+        defaultId: 0,
+        cancelId: 0,
+      });
+      if (confirm.response !== 1) {
+        return { success: false, cancelled: true };
+      }
+
+      const preRestorePath: string = path.join(
+        app.getPath('userData'),
+        'backups',
+        `envoy-pre-restore-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+      );
+      try {
+        const preRestore = await collectBackup(database);
+        await writeBackupFile(preRestorePath, preRestore);
+      } catch (err) {
+        logger.warn('Pre-restore snapshot failed — aborting', err);
+        return { success: false, error: 'Could not write pre-restore snapshot' };
+      }
+
+      const raw = fs.readFileSync(filePath, 'utf8');
+      const envelope = JSON.parse(raw);
+      const result = await restoreEnvelope(database as any, envelope);
+
+      logger.info('Latest auto-backup restored', {
+        source: filePath,
+        totalApplied: result.totalApplied,
+        preRestorePath,
+      });
+
+      return {
+        success: true,
+        source: filePath,
+        applied: result.applied,
+        skipped: result.skipped,
+        totalApplied: result.totalApplied,
+        preRestorePath,
+      };
+    } catch (err) {
+      logger.error('BACKUP_RESTORE_LATEST_AUTO failed', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Restore failed',
+      };
+    }
+  });
 
   ipcMain.handle(IPC_CHANNELS.BACKUP_RESTORE, async () => {
     try {

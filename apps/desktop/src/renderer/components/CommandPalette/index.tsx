@@ -328,6 +328,32 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       keywords: ['backup', 'auto', 'schedule', 'disable', 'stop'],
       section: 'actions',
     },
+    {
+      id: 'action-backup-restore-latest-auto',
+      title: 'Restore Latest Auto-Backup',
+      description: 'One-click recovery from the newest scheduled backup',
+      icon: <Clock className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.backup.restoreLatestAuto();
+          if (result.success) {
+            // eslint-disable-next-line no-console
+            console.info(
+              `Restored ${result.totalApplied} records from ${result.source}. Safety snapshot: ${result.preRestorePath ?? '(none)'}`
+            );
+          } else if (!result.cancelled && result.error) {
+            // eslint-disable-next-line no-console
+            console.error('Restore latest failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Restore latest auto-backup failed', err);
+        }
+      },
+      keywords: ['backup', 'restore', 'latest', 'auto', 'recover', 'undo'],
+      section: 'actions',
+    },
   ];
 
   const filteredCommands = commands.filter((cmd) => {
