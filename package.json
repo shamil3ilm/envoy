@@ -15,9 +15,12 @@
     "build:mobile:android": "npm run build:android --workspace=apps/mobile",
     "build:mobile:ios": "npm run build:ios --workspace=apps/mobile",
     "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "verify": "turbo run typecheck test"
   },
   "devDependencies": {
     "turbo": "^2.0.0"
-  }
+  },
+  "packageManager": "npm@10.0.0"
 }

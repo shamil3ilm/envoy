@@ -3,50 +3,17 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
-  ScrollView,
+  Share,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { RichDocument, CreateRichDocumentInput } from '@envoy/shared';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { RichDocument } from '@envoy/shared';
 import { useDatabase, useDatabaseReady } from '../contexts/DatabaseContext';
-
-interface DocFormState {
-  title: string;
-  content: string;
-  isTemplate: boolean;
-}
-
-const EMPTY_FORM: DocFormState = { title: '', content: '', isTemplate: false };
-
-function docToForm(d: RichDocument): DocFormState {
-  return { title: d.title, content: d.content, isTemplate: d.isTemplate };
-}
-
-function extractPlaceholders(content: string): string[] {
-  const set = new Set<string>();
-  const re = /\{\{\s*([\w.]+)\s*\}\}/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(content)) !== null) set.add(m[1]);
-  return Array.from(set);
-}
-
-function formToInput(f: DocFormState): CreateRichDocumentInput | null {
-  if (!f.title.trim()) return null;
-  return {
-    title: f.title.trim(),
-    content: f.content,
-    isTemplate: f.isTemplate,
-    placeholders: extractPlaceholders(f.content),
-  };
-}
 
 function formatDate(iso: string): string {
   try {
@@ -59,14 +26,11 @@ function formatDate(iso: string): string {
 export default function DocumentsScreen() {
   const db = useDatabase();
   const ready = useDatabaseReady();
+  const navigation = useNavigation<any>();
   const [docs, setDocs] = useState<RichDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'all' | 'documents' | 'templates'>('all');
-  const [editing, setEditing] = useState<RichDocument | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState<DocFormState>(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!db) return;
@@ -86,6 +50,12 @@ export default function DocumentsScreen() {
     if (ready) refresh();
   }, [ready, refresh]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (ready) refresh();
+    }, [ready, refresh])
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = docs;
@@ -98,38 +68,23 @@ export default function DocumentsScreen() {
   }, [docs, search, tab]);
 
   const openCreate = () => {
-    setEditing(null);
-    setForm(EMPTY_FORM);
-    setFormOpen(true);
+    navigation.navigate('DocumentEditor', { documentId: undefined });
   };
 
   const openEdit = (d: RichDocument) => {
-    setEditing(d);
-    setForm(docToForm(d));
-    setFormOpen(true);
+    navigation.navigate('DocumentEditor', { documentId: d.id });
   };
 
-  const save = async () => {
-    if (!db) return;
-    const input = formToInput(form);
-    if (!input) {
-      Alert.alert('Title is required');
+  const shareDoc = async (d: RichDocument) => {
+    const text = d.title ? `${d.title}\n\n${d.content}` : d.content;
+    if (!text.trim()) {
+      Alert.alert('Document is empty');
       return;
     }
-    setSaving(true);
     try {
-      if (editing) {
-        await db.updateRichDocument(editing.id, input);
-      } else {
-        await db.createRichDocument(input);
-      }
-      setFormOpen(false);
-      await refresh();
+      await Share.share({ title: d.title || 'Document', message: text });
     } catch (err) {
-      console.error('Save document failed', err);
-      Alert.alert('Could not save document');
-    } finally {
-      setSaving(false);
+      console.error('Share failed', err);
     }
   };
 
@@ -213,76 +168,21 @@ export default function DocumentsScreen() {
               <Text style={styles.cardPreview} numberOfLines={3}>
                 {item.content || 'No content yet'}
               </Text>
-              <Text style={styles.cardMeta}>
-                {formatDate(item.updatedAt)}
-                {item.placeholders.length > 0
-                  ? ` · ${item.placeholders.length} placeholder${item.placeholders.length === 1 ? '' : 's'}`
-                  : ''}
-              </Text>
+              <View style={styles.cardFooter}>
+                <Text style={styles.cardMeta}>
+                  {formatDate(item.updatedAt)}
+                  {item.placeholders.length > 0
+                    ? ` · ${item.placeholders.length} placeholder${item.placeholders.length === 1 ? '' : 's'}`
+                    : ''}
+                </Text>
+                <TouchableOpacity onPress={() => shareDoc(item)} style={styles.shareButton}>
+                  <Text style={styles.shareButtonText}>Share</Text>
+                </TouchableOpacity>
+              </View>
             </Pressable>
           )}
         />
       )}
-
-      <Modal
-        visible={formOpen}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setFormOpen(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setFormOpen(false)}>
-              <Text style={styles.modalCancel}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>{editing ? 'Edit document' : 'New document'}</Text>
-            <TouchableOpacity onPress={save} disabled={saving}>
-              <Text style={[styles.modalSave, saving && styles.modalSaveDisabled]}>
-                {saving ? 'Saving…' : 'Save'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView contentContainerStyle={styles.form}>
-            <TextInput
-              style={styles.titleInput}
-              value={form.title}
-              onChangeText={(v) => setForm({ ...form, title: v })}
-              placeholder="Title"
-              placeholderTextColor="#9ca3af"
-            />
-            <TextInput
-              style={styles.contentInput}
-              value={form.content}
-              onChangeText={(v) => setForm({ ...form, content: v })}
-              placeholder="Draft your content here. Use {{ placeholders }} for templates."
-              placeholderTextColor="#9ca3af"
-              multiline
-              textAlignVertical="top"
-            />
-            <View style={styles.templateToggle}>
-              <Text style={styles.templateToggleLabel}>Save as reusable template</Text>
-              <Switch
-                value={form.isTemplate}
-                onValueChange={(v) => setForm({ ...form, isTemplate: v })}
-              />
-            </View>
-            {editing && (
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => {
-                  setFormOpen(false);
-                  confirmDelete(editing);
-                }}
-              >
-                <Text style={styles.deleteButtonText}>Delete document</Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
   );
 }
@@ -356,7 +256,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardPreview: { marginTop: 6, fontSize: 13, color: '#4b5563', lineHeight: 18 },
-  cardMeta: { marginTop: 6, fontSize: 11, color: '#9ca3af' },
+  cardFooter: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardMeta: { fontSize: 11, color: '#9ca3af' },
+  shareButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#eef2ff',
+  },
+  shareButtonText: { color: '#4338ca', fontSize: 11, fontWeight: '600' },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyTitle: { fontSize: 17, fontWeight: '600', color: '#374151' },
   emptySubtitle: { marginTop: 8, fontSize: 14, color: '#6b7280', textAlign: 'center' },
