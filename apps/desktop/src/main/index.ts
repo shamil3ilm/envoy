@@ -14,7 +14,7 @@ import { initLogger, logger } from './services/logger';
 import { isSafeExternalUrl } from './services/security';
 import { startAutoUpdater, installUpdateNow } from './services/updater';
 import { initSentry } from './services/sentry';
-import { startAutoBackup } from './services/backup-scheduler';
+import { runShutdownBackup, startAutoBackup } from './services/backup-scheduler';
 import { runDatabaseIntegrityCheck } from './services/diagnostics';
 
 initLogger();
@@ -306,6 +306,20 @@ app.on('before-quit', async (event) => {
   if (emailService) emailService.close();
   if (database) {
     event.preventDefault();
+    // Give the auto-backup scheduler one last chance to catch up if it's
+    // enabled and the interval has elapsed. Hard-capped at 3s so quit
+    // stays responsive; if the backup can't finish in time, we drop it
+    // rather than freeze the app.
+    try {
+      const result = await runShutdownBackup(database as any, 3000);
+      if (result.ran) {
+        logger.info('Shutdown backup completed');
+      } else if (result.reason && result.reason !== 'disabled' && result.reason !== 'not yet due') {
+        logger.warn('Shutdown backup skipped', { reason: result.reason });
+      }
+    } catch (err) {
+      logger.error('Shutdown backup crashed', err);
+    }
     await database.close();
     app.exit(0);
   }
