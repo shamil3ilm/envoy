@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
+- **Mobile PDF export** via `pdf-lib` (pure JS, no native module install
+  needed). DocumentEditor toolbar gains a PDF button that renders the
+  current title + Nunjucks-rendered body onto US-Letter pages with
+  greedy word-wrap and per-document page color, writes to
+  `RNFS.CachesDirectoryPath`, and hands off via RN Share.
 - **LAN sync MVP** — desktop hosts a token-authenticated HTTP endpoint
   (`GET /envoy/v1/ping` unauthenticated + `GET|POST /envoy/v1/envelope`
   authenticated). Ctrl+K → "Enable LAN Sync Server" generates a token,
