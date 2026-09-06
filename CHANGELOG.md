@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
+- **LAN sync MVP** — desktop hosts a token-authenticated HTTP endpoint
+  (`GET /envoy/v1/ping` unauthenticated + `GET|POST /envoy/v1/envelope`
+  authenticated). Ctrl+K → "Enable LAN Sync Server" generates a token,
+  binds `0.0.0.0:47828`, and copies the URLs + token to the clipboard.
+  Mobile Settings → 🔗 LAN Sync has URL + token inputs and Ping / Pull /
+  Push buttons. Constant-time token compare; 100 MB body cap; every
+  pull/push writes an audit-log entry with peer IP and counts. Reuses
+  the existing backup envelope + additive `restoreEnvelope` merge, so
+  no separate protocol to maintain.
 - Desktop **DB VACUUM** command — Ctrl+K → "Compact Database (VACUUM)".
   Reclaims unused space from the SQLite file. New `vacuum()` method on
   `IDatabase`; desktop measures freed bytes via `fs.statSync`, mobile
