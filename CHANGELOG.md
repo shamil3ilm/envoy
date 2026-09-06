@@ -6,6 +6,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
+- Desktop **JSON data export** — Ctrl+K → "Export All Data" writes a
+  versioned envelope of every user entity (contacts, templates, tasks,
+  notes, snippets, calendar, reminders, scheduled, audit, expenses, rich
+  documents, settings) via `envoy.backup.export()`. Atomic `.tmp`+rename
+  write. Email credentials deliberately excluded — the safeStorage cipher
+  can't be decrypted on a different OS profile.
+- Mobile **global search modal** — Dashboard 🔍 button opens a full-screen
+  search that fans out to 8 entity types in parallel, groups matches by
+  type, and taps route into the owning tab+stack. 200 ms debounce, `<2`
+  chars skipped, in-flight cancellation on new query.
+- Consolidated `sanitizePhone` / `sanitizeEmail` / `buildMailtoUrl` into
+  `@envoy/shared/sanitize` for mobile; desktop keeps inline copies with a
+  header comment pointing at the canonical source (main-process tsc
+  build's `rootDir: src` refuses out-of-tree resolutions).
 - CI: GitHub Actions `verify` workflow (typecheck + tests on push/PR to `main`).
 - CI: Dependabot for weekly npm bumps (grouped minor/patch, ignored majors on Electron/RN).
 - CI: PR template with a testing / secret-hygiene / IPC-boundary checklist.
