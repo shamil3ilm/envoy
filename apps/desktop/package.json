@@ -16,15 +16,18 @@
     "electron": "npm run build:main && npm run start",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "postinstall": "cd ../.. && npx electron-builder install-app-deps --project apps/desktop",
+    "postinstall": "electron-builder install-app-deps",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "@envoy/shared": "*",
-    "@envoy/database-core": "*",
     "@azure/msal-node": "^5.0.3",
+    "@envoy/database-core": "*",
+    "@envoy/shared": "*",
     "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@sentry/electron": "^5.12.0",
     "@tiptap/extension-color": "^3.19.0",
     "@tiptap/extension-font-family": "^3.19.0",
     "@tiptap/extension-highlight": "^3.19.0",
@@ -40,14 +43,17 @@
     "@tiptap/pm": "^3.19.0",
     "@tiptap/react": "^3.19.0",
     "@tiptap/starter-kit": "^3.19.0",
-    "better-sqlite3": "^9.4.3",
+    "better-sqlite3": "^11.10.0",
     "date-fns": "^3.3.1",
     "date-fns-tz": "^3.0.0",
+    "electron-log": "^5.4.4",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.8.9",
     "googleapis": "^130.0.0",
     "mysql2": "^3.9.1",
     "nodemailer": "^6.9.9",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
@@ -61,7 +67,7 @@
     "autoprefixer": "^10.4.17",
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
-    "electron": "28.3.3",
+    "electron": "^31.7.7",
     "electron-builder": "^24.9.1",
     "lucide-react": "^0.323.0",
     "postcss": "^8.4.35",
@@ -71,6 +77,7 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
     "vite": "^5.1.1",
+    "vitest": "^2.1.9",
     "zustand": "^4.5.0"
   },
   "build": {
@@ -100,17 +107,34 @@
       "node_modules/better-sqlite3/**/*"
     ],
     "win": {
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "mac": {
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "linux": {
-      "target": ["AppImage", "deb"]
+      "target": [
+        "AppImage",
+        "deb"
+      ]
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "envoy-app",
+        "repo": "envoy",
+        "releaseType": "release"
+      }
+    ]
   }
 }
