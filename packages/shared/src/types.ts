@@ -869,6 +869,12 @@ export interface PreferencesSettings {
   customExpenseCategories?: Record<string, { label: string; icon: string; color: string }>;
 }
 
+export interface AutoBackupSettings {
+  enabled: boolean;
+  intervalHours: number;
+  keepCount: number;
+}
+
 export interface AppSettings {
   theme: ThemeSettings;
   profile: ProfileSettings;
@@ -884,6 +890,7 @@ export interface AppSettings {
   teamsClientId?: string;
   setupComplete?: boolean;
   enabledFeatures?: Record<string, boolean>;
+  autoBackup?: AutoBackupSettings;
 }
 
 export const SETUP_FEATURE_GROUPS = [
