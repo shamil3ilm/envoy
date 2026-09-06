@@ -1166,7 +1166,12 @@ export type ActivityAction =
   | 'snippet_deleted'
   | 'expense_created'
   | 'expense_updated'
-  | 'expense_deleted';
+  | 'expense_deleted'
+  | 'backup_exported'
+  | 'backup_restored'
+  | 'backup_auto_run'
+  | 'backup_auto_enabled'
+  | 'backup_auto_disabled';
 
 export type ActivityCategory = 'template' | 'contact' | 'email' | 'document' | 'settings' | 'system' | 'schedule' | 'reminder' | 'task' | 'note' | 'snippet' | 'expense';
 

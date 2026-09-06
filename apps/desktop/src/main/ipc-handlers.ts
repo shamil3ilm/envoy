@@ -13,6 +13,7 @@ import { buildMailtoUrl, isSafeExternalUrl, isSafeUwpFamilyName, sanitizeEmail }
 import { collectBackup, inspectBackupFile, restoreEnvelope, writeBackupFile } from './services/backup';
 import { getAutoBackupStatus, newestAutoBackupPath, startAutoBackup } from './services/backup-scheduler';
 import { collectStorageStats, openBackupsFolder, runDatabaseIntegrityCheck } from './services/diagnostics';
+import { logBackupEvent } from './services/backup-audit';
 import {
   csvImportPath,
   csvExportPath,
@@ -2066,6 +2067,12 @@ export function registerIpcHandlers(
 
       const envelope = await collectBackup(database);
       await writeBackupFile(result.filePath, envelope);
+      const total = Object.values(envelope.counts).reduce((sum, n) => sum + n, 0);
+      await logBackupEvent(database, {
+        action: 'backup_exported',
+        description: `Exported ${total} records to ${result.filePath}`,
+        details: { path: result.filePath, counts: envelope.counts, mode: 'manual' },
+      });
       return {
         success: true,
         path: result.filePath,
@@ -2136,6 +2143,13 @@ export function registerIpcHandlers(
         };
         await database.setSettings(next);
         startAutoBackup(database, next.autoBackup);
+        await logBackupEvent(database, {
+          action: next.autoBackup.enabled ? 'backup_auto_enabled' : 'backup_auto_disabled',
+          description: next.autoBackup.enabled
+            ? `Auto-backup enabled — every ${next.autoBackup.intervalHours}h, keep ${next.autoBackup.keepCount}`
+            : 'Auto-backup disabled',
+          details: next.autoBackup,
+        });
         return { success: true, autoBackup: next.autoBackup };
       } catch (err) {
         logger.error('BACKUP_AUTO_SET failed', err);
@@ -2197,6 +2211,17 @@ export function registerIpcHandlers(
         source: filePath,
         totalApplied: result.totalApplied,
         preRestorePath,
+      });
+      await logBackupEvent(database, {
+        action: 'backup_restored',
+        description: `Restored ${result.totalApplied} records from latest auto-backup`,
+        details: {
+          source: filePath,
+          applied: result.applied,
+          skipped: result.skipped,
+          preRestorePath,
+          mode: 'auto-latest',
+        },
       });
 
       return {
@@ -2271,6 +2296,17 @@ export function registerIpcHandlers(
       logger.info('Backup restored', {
         totalApplied: result.totalApplied,
         preRestorePath,
+      });
+      await logBackupEvent(database, {
+        action: 'backup_restored',
+        description: `Restored ${result.totalApplied} records from ${filePath}`,
+        details: {
+          source: filePath,
+          applied: result.applied,
+          skipped: result.skipped,
+          preRestorePath,
+          mode: 'manual',
+        },
       });
 
       return {

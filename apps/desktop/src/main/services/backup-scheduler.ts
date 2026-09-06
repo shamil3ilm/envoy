@@ -4,6 +4,7 @@ import { app } from 'electron';
 import type { IDatabase } from './database.interface';
 import { collectBackup, writeBackupFile } from './backup';
 import { logger } from './logger';
+import { logBackupEvent } from './backup-audit';
 
 const AUTO_PREFIX = 'auto-';
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
@@ -92,6 +93,12 @@ export async function runAutoBackupIfDue(
   await writeBackupFile(outputPath, envelope);
   const rotated = rotateOldBackups(dir, options.keepCount);
   logger.info('Auto-backup written', { path: outputPath, rotated });
+  const total = Object.values(envelope.counts).reduce((sum, n) => sum + n, 0);
+  await logBackupEvent(db, {
+    action: 'backup_auto_run',
+    description: `Auto-backup wrote ${total} records`,
+    details: { path: outputPath, rotated, counts: envelope.counts },
+  });
   return { ran: true, path: outputPath, rotated };
 }
 
