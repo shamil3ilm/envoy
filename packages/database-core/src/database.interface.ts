@@ -169,6 +169,7 @@ export interface IDatabase {
 
   // Note Groups
   createNoteGroup(input: CreateNoteGroupInput): Promise<NoteGroup>;
+  getNoteGroup(id: string): Promise<NoteGroup | null>;
   listNoteGroups(): Promise<NoteGroup[]>;
   updateNoteGroup(id: string, input: UpdateNoteGroupInput): Promise<NoteGroup>;
   deleteNoteGroup(id: string): Promise<void>;

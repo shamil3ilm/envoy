@@ -1990,6 +1990,12 @@ export class SQLiteDatabaseService {
     return this.mapNoteGroup(row);
   }
 
+  async getNoteGroup(id: string): Promise<NoteGroup | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    const row = this.db.prepare('SELECT * FROM note_groups WHERE id = ?').get(id) as any;
+    return row ? this.mapNoteGroup(row) : null;
+  }
+
   async listNoteGroups(): Promise<NoteGroup[]> {
     if (!this.db) throw new Error('Database not initialized');
     const rows = this.db.prepare('SELECT * FROM note_groups ORDER BY sort_order ASC').all() as any[];
