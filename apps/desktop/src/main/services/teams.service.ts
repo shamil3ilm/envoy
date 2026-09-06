@@ -8,6 +8,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
+import { logger } from './logger';
 
 const GRAPH_SCOPES = ['Chat.ReadWrite', 'ChatMessage.Send', 'User.Read'];
 const REDIRECT_URI = 'http://localhost';
@@ -261,7 +262,7 @@ export class TeamsService {
       });
       fs.writeFileSync(this.cachePath, data, 'utf-8');
     } catch (err) {
-      console.error('Failed to save Teams token cache:', err);
+      logger.error('Failed to save Teams token cache:', err);
     }
   }
 
@@ -282,7 +283,7 @@ export class TeamsService {
         this.account = data.account;
       }
     } catch (err) {
-      console.error('Failed to load Teams token cache:', err);
+      logger.error('Failed to load Teams token cache:', err);
     }
   }
 }

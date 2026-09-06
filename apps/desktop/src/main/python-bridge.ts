@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import { app } from 'electron';
+import { logger } from './services/logger';
 import type {
   JsonRpcRequest,
   JsonRpcResponse,
@@ -52,7 +53,7 @@ export class PythonBridge {
     const pythonPath = this.getPythonPath();
     const enginePath = this.getEnginePath();
 
-    console.log(`Starting Python engine: ${pythonPath} ${enginePath}`);
+    logger.info(`Starting Python engine: ${pythonPath} ${enginePath}`);
 
     this.readyPromise = new Promise((resolve, reject) => {
       try {
@@ -79,16 +80,16 @@ export class PythonBridge {
           const message = data.toString().trim();
           if (message.includes('Python engine ready')) {
             this.isReady = true;
-            console.log('Python engine is ready');
+            logger.info('Python engine is ready');
             resolve();
           } else {
-            console.log('[Python]', message);
+            logger.info('[Python]', message);
           }
         });
 
         // Handle process exit
         this.process.on('exit', (code) => {
-          console.log(`Python engine exited with code ${code}`);
+          logger.info(`Python engine exited with code ${code}`);
           this.isReady = false;
           this.process = null;
 
@@ -101,7 +102,7 @@ export class PythonBridge {
 
         // Handle process error
         this.process.on('error', (error) => {
-          console.error('Python engine error:', error);
+          logger.error('Python engine error:', error);
           reject(error);
         });
 
@@ -164,7 +165,7 @@ export class PythonBridge {
           }
         }
       } catch (error) {
-        console.error('Failed to parse Python response:', line, error);
+        logger.error('Failed to parse Python response:', line, error);
       }
     }
   }
