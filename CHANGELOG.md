@@ -15,10 +15,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Desktop **backup inspect + restore** — Ctrl+K → "Inspect Backup File"
   previews an export without touching data; "Restore From Backup" merges
   by id (upsert, never delete) after a required confirmation dialog and
-  a mandatory pre-restore snapshot to `userData/backups/`. Restore
-  supports contacts / templates / snippets / tasks / notes / expenses /
-  richDocuments; reminders / calendar / groups / audit are deferred to a
-  follow-up because their create signatures need input adapters.
+  a mandatory pre-restore snapshot to `userData/backups/`. Restore covers
+  contacts / templates / snippets / tasks / notes / expenses / rich
+  documents / reminders / calendar events / contact groups / scheduled
+  messages / note groups / settings. Audit logs are permanently excluded
+  since duplicating them breaks provenance.
+- New `getNoteGroup(id)` on the shared IDatabase interface + both DB
+  implementations. Enables note-group upsert in the restore path.
 - Mobile **backup export + restore** — Settings → Data & Backup exports
   via the RN Share sheet and restores by pasting the JSON back in with a
   preview step. Envelopes exported from either platform interoperate.
