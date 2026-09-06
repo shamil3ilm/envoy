@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
+- **LAN sync rate limiting** — the desktop server returns `429` after 60
+  requests per minute per source IP. Cheap in-memory rolling-window
+  limiter; protects against runaway clients even before the token check
+  fires.
+- **LAN sync QR pairing** — desktop writes a 512 px PNG of
+  `envoy://sync?url=…&token=…` and opens it in the OS image viewer;
+  mobile's URL input auto-parses the pasted string. Together with the
+  "Copy Pairing URL" and "Rotate Token" palette entries, the whole sync
+  lifecycle sits in Ctrl+K.
+- **docs/LAN_SYNC.md** — full security posture, setup, firewall notes,
+  troubleshooting matrix, deliberate v2+ deferrals.
 - **Mobile PDF export** via `pdf-lib` (pure JS, no native module install
   needed). DocumentEditor toolbar gains a PDF button that renders the
   current title + Nunjucks-rendered body onto US-Letter pages with
