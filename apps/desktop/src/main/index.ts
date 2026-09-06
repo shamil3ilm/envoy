@@ -14,6 +14,7 @@ import { initLogger, logger } from './services/logger';
 import { isSafeExternalUrl } from './services/security';
 import { startAutoUpdater, installUpdateNow } from './services/updater';
 import { initSentry } from './services/sentry';
+import { startAutoBackup } from './services/backup-scheduler';
 
 initLogger();
 initSentry();
@@ -238,6 +239,16 @@ async function initialize(): Promise<void> {
 
   registerIpcHandlers(ipcMain, database as any, pythonBridge, emailService, reminderService, teamsService);
   logger.info('IPC handlers registered');
+
+  try {
+    const savedSettingsForBackup = await database.getSettings();
+    const autoBackupSettings = (savedSettingsForBackup as any).autoBackup;
+    if (autoBackupSettings) {
+      startAutoBackup(database as any, autoBackupSettings);
+    }
+  } catch (err) {
+    logger.error('Failed to start auto-backup scheduler', err);
+  }
 }
 
 app.on('ready', async () => {
