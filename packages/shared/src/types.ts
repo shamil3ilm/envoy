@@ -875,6 +875,12 @@ export interface AutoBackupSettings {
   keepCount: number;
 }
 
+export interface SyncSettings {
+  enabled: boolean;
+  port: number;
+  token: string;
+}
+
 export interface AppSettings {
   theme: ThemeSettings;
   profile: ProfileSettings;
@@ -891,6 +897,7 @@ export interface AppSettings {
   setupComplete?: boolean;
   enabledFeatures?: Record<string, boolean>;
   autoBackup?: AutoBackupSettings;
+  sync?: SyncSettings;
 }
 
 export const SETUP_FEATURE_GROUPS = [

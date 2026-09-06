@@ -658,6 +658,12 @@ export const IPC_CHANNELS = {
   DIAGNOSTICS_OPEN_BACKUPS_FOLDER: 'diagnostics:openBackupsFolder',
   DIAGNOSTICS_VACUUM: 'diagnostics:vacuum',
   DIAGNOSTICS_DEBUG_INFO: 'diagnostics:debugInfo',
+
+  // LAN sync (desktop hosts, mobile pulls/pushes)
+  SYNC_STATUS: 'sync:status',
+  SYNC_ENABLE: 'sync:enable',
+  SYNC_DISABLE: 'sync:disable',
+  SYNC_REGENERATE_TOKEN: 'sync:regenerateToken',
 } as const;
 
 // ============================================

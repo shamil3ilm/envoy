@@ -16,6 +16,7 @@ import { startAutoUpdater, installUpdateNow } from './services/updater';
 import { initSentry } from './services/sentry';
 import { runShutdownBackup, startAutoBackup } from './services/backup-scheduler';
 import { runDatabaseIntegrityCheck } from './services/diagnostics';
+import { startSyncServer, stopSyncServer } from './services/sync-server';
 
 initLogger();
 initSentry();
@@ -247,8 +248,12 @@ async function initialize(): Promise<void> {
     if (autoBackupSettings) {
       startAutoBackup(database as any, autoBackupSettings);
     }
+    const syncSettings = (savedSettingsForBackup as any).sync;
+    if (syncSettings?.enabled && syncSettings.token) {
+      startSyncServer(database as any, syncSettings);
+    }
   } catch (err) {
-    logger.error('Failed to start auto-backup scheduler', err);
+    logger.error('Failed to start background services', err);
   }
 
   // Kick off an integrity check in the background so it doesn't block window
@@ -304,6 +309,7 @@ app.on('before-quit', async (event) => {
   if (schedulerService) schedulerService.stop();
   if (pythonBridge) pythonBridge.stop();
   if (emailService) emailService.close();
+  stopSyncServer();
   if (database) {
     event.preventDefault();
     // Give the auto-backup scheduler one last chance to catch up if it's
