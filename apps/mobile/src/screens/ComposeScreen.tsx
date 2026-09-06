@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import type { Contact, Template, Channel } from '@envoy/shared';
+import { sanitizePhone } from '@envoy/shared';
 import { useDatabase, useDatabaseReady } from '../contexts/DatabaseContext';
 import { renderTemplate } from '../services/TemplateEngine';
 
@@ -33,11 +34,6 @@ function initials(name: string): string {
   const first = parts[0][0] ?? '';
   const last = parts.length > 1 ? parts[parts.length - 1][0] ?? '' : '';
   return (first + last).toUpperCase();
-}
-
-function sanitizePhone(raw: string): string | null {
-  const trimmed = raw.replace(/[\s\-()]/g, '');
-  return /^\+?[0-9]{6,20}$/.test(trimmed) ? trimmed : null;
 }
 
 function buildContext(contact: Contact | null): Record<string, unknown> {
