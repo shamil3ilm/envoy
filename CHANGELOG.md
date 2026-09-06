@@ -6,6 +6,34 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ## [Unreleased]
 
 ### Added
+- Desktop **DB VACUUM** command — Ctrl+K → "Compact Database (VACUUM)".
+  Reclaims unused space from the SQLite file. New `vacuum()` method on
+  `IDatabase`; desktop measures freed bytes via `fs.statSync`, mobile
+  approximates via `PRAGMA page_count * page_size`.
+- Desktop **Copy Debug Info** command — Ctrl+K → assembles version /
+  platform / DB size / integrity result / last 40 log lines into a
+  paste-ready blob and copies to clipboard. No credentials or user data
+  included.
+- Mobile **Diagnostics parity** — Settings → Diagnostics now has three
+  buttons: Run integrity check, Compact database (VACUUM), Copy debug
+  info. Same shape as desktop, minus the log tail (Notifee/Sentry own
+  mobile logging).
+- Desktop **shutdown backup** — if auto-backup is enabled and the
+  interval has elapsed, `before-quit` runs one final catch-up backup
+  with a hard 3-second timeout so quit stays responsive even if the DB
+  is locked.
+- Desktop **audit log entries** for every backup lifecycle event
+  (`backup_exported` / `backup_restored` / `backup_auto_run` /
+  `backup_auto_enabled` / `backup_auto_disabled`). Mobile writes
+  matching entries for its manual export/restore paths.
+- Desktop **auto-backup scheduler** with restore-latest-auto one-click
+  recovery — every N hours writes `userData/backups/auto-<ts>.json`,
+  keeps N newest. Toggle from Ctrl+K; runs on next start if the machine
+  was asleep.
+- Desktop **diagnostics suite** — DB integrity check on `IDatabase`,
+  storage stats (userData / DB / backups / logs sizes), open backups
+  folder via `shell.openPath()`, startup integrity check that logs
+  warnings if the DB is unhealthy.
 - Desktop **JSON data export** — Ctrl+K → "Export All Data" writes a
   versioned envelope of every user entity (contacts, templates, tasks,
   notes, snippets, calendar, reminders, scheduled, audit, expenses, rich
