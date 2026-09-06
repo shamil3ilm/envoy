@@ -12,6 +12,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
   documents, settings) via `envoy.backup.export()`. Atomic `.tmp`+rename
   write. Email credentials deliberately excluded — the safeStorage cipher
   can't be decrypted on a different OS profile.
+- Desktop **backup inspect + restore** — Ctrl+K → "Inspect Backup File"
+  previews an export without touching data; "Restore From Backup" merges
+  by id (upsert, never delete) after a required confirmation dialog and
+  a mandatory pre-restore snapshot to `userData/backups/`. Restore
+  supports contacts / templates / snippets / tasks / notes / expenses /
+  richDocuments; reminders / calendar / groups / audit are deferred to a
+  follow-up because their create signatures need input adapters.
 - Mobile **global search modal** — Dashboard 🔍 button opens a full-screen
   search that fans out to 8 entity types in parallel, groups matches by
   type, and taps route into the owning tab+stack. 200 ms debounce, `<2`
