@@ -64,8 +64,8 @@ export class MobileDatabaseService implements IDatabase {
     this.db = open({ name: 'envoy.db' });
 
     // Enable foreign keys and WAL mode for better performance
-    this.db.execute('PRAGMA journal_mode = WAL');
-    this.db.execute('PRAGMA foreign_keys = ON');
+    await this.db.execute('PRAGMA journal_mode = WAL');
+    await this.db.execute('PRAGMA foreign_keys = ON');
 
     // Run migrations
     await this.runMigrations();
@@ -77,7 +77,7 @@ export class MobileDatabaseService implements IDatabase {
     if (!this.db) throw new Error('Database not initialized');
 
     // Create migrations table
-    this.db.execute(`
+    await this.db.execute(`
       CREATE TABLE IF NOT EXISTS migrations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
@@ -396,23 +396,23 @@ export class MobileDatabaseService implements IDatabase {
       },
     ];
 
-    const appliedResult = this.db.execute('SELECT name FROM migrations');
-    const appliedMigrations = appliedResult.rows?._array?.map((row: any) => row.name) || [];
+    const appliedResult = await this.db.execute('SELECT name FROM migrations');
+    const appliedMigrations = appliedResult.rows?.map((row: any) => row.name) || [];
 
     for (const migration of migrations) {
       if (!appliedMigrations.includes(migration.name)) {
         console.log(`Applying migration: ${migration.name}`);
 
-        this.db.execute('BEGIN TRANSACTION');
+        await this.db.execute('BEGIN TRANSACTION');
         try {
           for (const statement of migration.statements) {
-            this.db.execute(statement);
+            await this.db.execute(statement);
           }
-          this.db.execute('INSERT INTO migrations (name) VALUES (?)', [migration.name]);
-          this.db.execute('COMMIT');
+          await this.db.execute('INSERT INTO migrations (name) VALUES (?)', [migration.name]);
+          await this.db.execute('COMMIT');
           console.log(`Migration ${migration.name} applied successfully`);
         } catch (e) {
-          this.db.execute('ROLLBACK');
+          await this.db.execute('ROLLBACK');
           throw e;
         }
       }
@@ -429,7 +429,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO templates (
         id, name, category, channel, subject, body, tone,
         attachment_template, attachment_format, follow_up_days,
@@ -457,8 +457,8 @@ export class MobileDatabaseService implements IDatabase {
   async getTemplate(id: string): Promise<Template | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM templates WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM templates WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapTemplate(row) : null;
   }
 
@@ -479,8 +479,8 @@ export class MobileDatabaseService implements IDatabase {
 
     sql += ' ORDER BY updated_at DESC';
 
-    const result = this.db.execute(sql, params);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapTemplate(row));
   }
 
@@ -504,7 +504,7 @@ export class MobileDatabaseService implements IDatabase {
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
-      this.db.execute(`UPDATE templates SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE templates SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getTemplate(id))!;
@@ -512,7 +512,7 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteTemplate(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM templates WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM templates WHERE id = ?', [id]);
   }
 
   private mapTemplate(row: any): Template {
@@ -542,7 +542,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO contacts (
         id, name, email, phone, company, title, timezone,
         preferred_channel, custom_fields, tags, created_at, updated_at
@@ -569,8 +569,8 @@ export class MobileDatabaseService implements IDatabase {
   async getContact(id: string): Promise<Contact | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM contacts WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM contacts WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapContact(row) : null;
   }
 
@@ -588,8 +588,8 @@ export class MobileDatabaseService implements IDatabase {
 
     sql += ' ORDER BY name ASC';
 
-    const result = this.db.execute(sql, params);
-    let rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    let rows = result.rows || [];
 
     // Filter by tags in JavaScript (SQLite JSON support is limited)
     if (filter?.tags && filter.tags.length > 0) {
@@ -622,7 +622,7 @@ export class MobileDatabaseService implements IDatabase {
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
-      this.db.execute(`UPDATE contacts SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE contacts SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getContact(id))!;
@@ -630,12 +630,12 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteContact(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM contacts WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM contacts WHERE id = ?', [id]);
   }
 
   async updateContactLastContacted(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('UPDATE contacts SET last_contacted = ? WHERE id = ?', [
+    await this.db.execute('UPDATE contacts SET last_contacted = ? WHERE id = ?', [
       new Date().toISOString(),
       id,
     ]);
@@ -669,7 +669,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO contact_groups (id, name, description, color, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)`,
       [id, input.name, input.description || null, input.color || '#3b82f6', now, now]
@@ -681,15 +681,15 @@ export class MobileDatabaseService implements IDatabase {
   async getContactGroup(id: string): Promise<ContactGroup | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM contact_groups WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM contact_groups WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     if (!row) return null;
 
-    const memberResult = this.db.execute(
+    const memberResult = await this.db.execute(
       'SELECT contact_id FROM contact_group_members WHERE group_id = ?',
       [id]
     );
-    const memberRows = memberResult.rows?._array || [];
+    const memberRows = memberResult.rows || [];
 
     return {
       id: row.id,
@@ -707,16 +707,16 @@ export class MobileDatabaseService implements IDatabase {
   async listContactGroups(): Promise<ContactGroup[]> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM contact_groups ORDER BY name ASC');
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute('SELECT * FROM contact_groups ORDER BY name ASC');
+    const rows = result.rows || [];
     const groups: ContactGroup[] = [];
 
     for (const row of rows) {
-      const memberResult = this.db.execute(
+      const memberResult = await this.db.execute(
         'SELECT contact_id FROM contact_group_members WHERE group_id = ?',
         [row.id]
       );
-      const memberRows = memberResult.rows?._array || [];
+      const memberRows = memberResult.rows || [];
 
       groups.push({
         id: row.id,
@@ -748,7 +748,7 @@ export class MobileDatabaseService implements IDatabase {
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
-      this.db.execute(`UPDATE contact_groups SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE contact_groups SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getContactGroup(id))!;
@@ -756,12 +756,12 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteContactGroup(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM contact_groups WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM contact_groups WHERE id = ?', [id]);
   }
 
   async addContactToGroup(groupId: string, contactId: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute(
+    await this.db.execute(
       `INSERT OR IGNORE INTO contact_group_members (group_id, contact_id)
       VALUES (?, ?)`,
       [groupId, contactId]
@@ -770,7 +770,7 @@ export class MobileDatabaseService implements IDatabase {
 
   async removeContactFromGroup(groupId: string, contactId: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute(
+    await this.db.execute(
       'DELETE FROM contact_group_members WHERE group_id = ? AND contact_id = ?',
       [groupId, contactId]
     );
@@ -779,14 +779,14 @@ export class MobileDatabaseService implements IDatabase {
   async getContactGroups(contactId: string): Promise<ContactGroup[]> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute(
+    const result = await this.db.execute(
       `SELECT g.* FROM contact_groups g
       INNER JOIN contact_group_members m ON g.id = m.group_id
       WHERE m.contact_id = ?
       ORDER BY g.name ASC`,
       [contactId]
     );
-    const rows = result.rows?._array || [];
+    const rows = result.rows || [];
 
     return rows.map((row: any) => ({
       id: row.id,
@@ -804,17 +804,17 @@ export class MobileDatabaseService implements IDatabase {
   async reorderContactGroups(orderedIds: string[]): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
-    this.db.execute('BEGIN TRANSACTION');
+    await this.db.execute('BEGIN TRANSACTION');
     try {
       for (let i = 0; i < orderedIds.length; i++) {
-        this.db.execute(
+        await this.db.execute(
           'UPDATE contact_groups SET sort_order = ?, updated_at = ? WHERE id = ?',
           [i, new Date().toISOString(), orderedIds[i]]
         );
       }
-      this.db.execute('COMMIT');
+      await this.db.execute('COMMIT');
     } catch (e) {
-      this.db.execute('ROLLBACK');
+      await this.db.execute('ROLLBACK');
       throw e;
     }
   }
@@ -829,7 +829,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO snippets (id, name, shortcut, content, category, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, input.name, input.shortcut || null, input.content, input.category || 'general', now, now]
@@ -841,16 +841,16 @@ export class MobileDatabaseService implements IDatabase {
   async getSnippet(id: string): Promise<Snippet | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM snippets WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM snippets WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapSnippet(row) : null;
   }
 
   async getSnippetByShortcut(shortcut: string): Promise<Snippet | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM snippets WHERE shortcut = ?', [shortcut]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM snippets WHERE shortcut = ?', [shortcut]);
+    const row = result.rows?.[0];
     return row ? this.mapSnippet(row) : null;
   }
 
@@ -872,8 +872,8 @@ export class MobileDatabaseService implements IDatabase {
 
     sql += ' ORDER BY usage_count DESC, name ASC';
 
-    const result = this.db.execute(sql, params);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapSnippet(row));
   }
 
@@ -892,7 +892,7 @@ export class MobileDatabaseService implements IDatabase {
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
-      this.db.execute(`UPDATE snippets SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE snippets SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getSnippet(id))!;
@@ -900,12 +900,12 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteSnippet(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM snippets WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM snippets WHERE id = ?', [id]);
   }
 
   async incrementSnippetUsage(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('UPDATE snippets SET usage_count = usage_count + 1 WHERE id = ?', [id]);
+    await this.db.execute('UPDATE snippets SET usage_count = usage_count + 1 WHERE id = ?', [id]);
   }
 
   private mapSnippet(row: any): Snippet {
@@ -928,8 +928,8 @@ export class MobileDatabaseService implements IDatabase {
   async getSettings(): Promise<AppSettings> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT data FROM settings WHERE id = 1');
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT data FROM settings WHERE id = 1');
+    const row = result.rows?.[0];
     if (!row) {
       await this.saveSettings(DEFAULT_SETTINGS);
       return DEFAULT_SETTINGS;
@@ -940,7 +940,7 @@ export class MobileDatabaseService implements IDatabase {
   async saveSettings(settings: AppSettings): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO settings (id, data) VALUES (1, ?)
       ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
       [JSON.stringify(settings)]
@@ -979,10 +979,10 @@ export class MobileDatabaseService implements IDatabase {
 
     // If this is the first account or marked as default, unset other defaults
     if (account.isDefault) {
-      this.db.execute('UPDATE email_accounts SET is_default = 0');
+      await this.db.execute('UPDATE email_accounts SET is_default = 0');
     }
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO email_accounts (
         id, email, provider, display_name, is_default,
         smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass,
@@ -1015,26 +1015,26 @@ export class MobileDatabaseService implements IDatabase {
   async getEmailAccount(id: string): Promise<EmailAccount | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM email_accounts WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM email_accounts WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapEmailAccount(row) : null;
   }
 
   async getDefaultEmailAccount(): Promise<EmailAccount | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM email_accounts WHERE is_default = 1');
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM email_accounts WHERE is_default = 1');
+    const row = result.rows?.[0];
     return row ? this.mapEmailAccount(row) : null;
   }
 
   async listEmailAccounts(): Promise<EmailAccount[]> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute(
+    const result = await this.db.execute(
       'SELECT * FROM email_accounts ORDER BY is_default DESC, email ASC'
     );
-    const rows = result.rows?._array || [];
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapEmailAccount(row));
   }
 
@@ -1042,7 +1042,7 @@ export class MobileDatabaseService implements IDatabase {
     if (!this.db) throw new Error('Database not initialized');
 
     if (update.isDefault) {
-      this.db.execute('UPDATE email_accounts SET is_default = 0');
+      await this.db.execute('UPDATE email_accounts SET is_default = 0');
     }
 
     const updates: string[] = [];
@@ -1067,7 +1067,7 @@ export class MobileDatabaseService implements IDatabase {
 
     if (updates.length > 0) {
       values.push(id);
-      this.db.execute(`UPDATE email_accounts SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE email_accounts SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getEmailAccount(id))!;
@@ -1075,7 +1075,7 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteEmailAccount(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM email_accounts WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM email_accounts WHERE id = ?', [id]);
   }
 
   private mapEmailAccount(row: any): EmailAccount {
@@ -1115,7 +1115,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO audit_logs (
         id, channel, template_id, template_name, recipient_id, recipient_address,
         subject, body_preview, attachments, status, sent_at, error_message, created_at
@@ -1143,8 +1143,8 @@ export class MobileDatabaseService implements IDatabase {
   async getAuditLog(id: string): Promise<AuditLog | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM audit_logs WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM audit_logs WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapAuditLog(row) : null;
   }
 
@@ -1179,8 +1179,8 @@ export class MobileDatabaseService implements IDatabase {
       params.push(filter.offset);
     }
 
-    const result = this.db.execute(sql, params);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapAuditLog(row));
   }
 
@@ -1213,7 +1213,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO activity_logs (
         id, type, action, entity_type, entity_id, entity_name, description, metadata, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -1236,8 +1236,8 @@ export class MobileDatabaseService implements IDatabase {
   async getActivityLog(id: string): Promise<UserActivityLog | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM activity_logs WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM activity_logs WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapActivityLog(row) : null;
   }
 
@@ -1274,8 +1274,8 @@ export class MobileDatabaseService implements IDatabase {
     if (filter?.fromDate) { sql += ' AND created_at >= ?'; countSql += ' AND created_at >= ?'; params.push(filter.fromDate); }
     if (filter?.toDate) { sql += ' AND created_at <= ?'; countSql += ' AND created_at <= ?'; params.push(filter.toDate); }
 
-    const countResult = this.db.execute(countSql, params);
-    const total = countResult.rows?._array?.[0]?.count || 0;
+    const countResult = await this.db.execute(countSql, params);
+    const total = countResult.rows?.[0]?.count || 0;
 
     sql += ' ORDER BY created_at DESC';
 
@@ -1289,8 +1289,8 @@ export class MobileDatabaseService implements IDatabase {
       limitParams.push(filter.offset);
     }
 
-    const result = this.db.execute(sql, limitParams);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, limitParams);
+    const rows = result.rows || [];
     return { logs: rows.map((row: any) => this.mapActivityLog(row)), total };
   }
 
@@ -1298,9 +1298,9 @@ export class MobileDatabaseService implements IDatabase {
     if (!this.db) throw new Error('Database not initialized');
 
     if (beforeDate) {
-      this.db.execute('DELETE FROM activity_logs WHERE created_at < ?', [beforeDate]);
+      await this.db.execute('DELETE FROM activity_logs WHERE created_at < ?', [beforeDate]);
     } else {
-      this.db.execute('DELETE FROM activity_logs');
+      await this.db.execute('DELETE FROM activity_logs');
     }
   }
 
@@ -1327,7 +1327,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO scheduled_messages (
         id, template_id, recipient_ids, channel, subject, body,
         scheduled_for, timezone, status, attachment_paths, created_at, updated_at
@@ -1354,8 +1354,8 @@ export class MobileDatabaseService implements IDatabase {
   async getScheduledMessage(id: string): Promise<ScheduledMessage | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM scheduled_messages WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM scheduled_messages WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapScheduledMessage(row) : null;
   }
 
@@ -1372,8 +1372,8 @@ export class MobileDatabaseService implements IDatabase {
 
     sql += ' ORDER BY scheduled_for ASC';
 
-    const result = this.db.execute(sql, params);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapScheduledMessage(row));
   }
 
@@ -1392,7 +1392,7 @@ export class MobileDatabaseService implements IDatabase {
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
-      this.db.execute(`UPDATE scheduled_messages SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE scheduled_messages SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getScheduledMessage(id))!;
@@ -1400,21 +1400,21 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteScheduledMessage(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM scheduled_messages WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM scheduled_messages WHERE id = ?', [id]);
   }
 
   async getPendingScheduledMessages(): Promise<ScheduledMessage[]> {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const result = this.db.execute(
+    const result = await this.db.execute(
       `SELECT * FROM scheduled_messages
       WHERE status = 'pending' AND scheduled_for <= ?
       ORDER BY scheduled_for ASC`,
       [now]
     );
 
-    const rows = result.rows?._array || [];
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapScheduledMessage(row));
   }
 
@@ -1443,7 +1443,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO reminders (
         id, type, title, description, related_entity_id, related_entity_type,
         due_at, timezone, status, repeat_schedule, metadata, created_at
@@ -1470,8 +1470,8 @@ export class MobileDatabaseService implements IDatabase {
   async getReminder(id: string): Promise<Reminder | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM reminders WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM reminders WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapReminder(row) : null;
   }
 
@@ -1488,8 +1488,8 @@ export class MobileDatabaseService implements IDatabase {
 
     sql += ' ORDER BY due_at ASC';
 
-    const result = this.db.execute(sql, params);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapReminder(row));
   }
 
@@ -1510,7 +1510,7 @@ export class MobileDatabaseService implements IDatabase {
 
     if (updates.length > 0) {
       values.push(id);
-      this.db.execute(`UPDATE reminders SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE reminders SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getReminder(id))!;
@@ -1518,14 +1518,14 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteReminder(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM reminders WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM reminders WHERE id = ?', [id]);
   }
 
   async getDueReminders(): Promise<Reminder[]> {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const result = this.db.execute(
+    const result = await this.db.execute(
       `SELECT * FROM reminders
       WHERE (status = 'pending' AND due_at <= ? AND notified_at IS NULL)
          OR (status = 'snoozed' AND snoozed_until <= ?)
@@ -1533,7 +1533,7 @@ export class MobileDatabaseService implements IDatabase {
       [now, now]
     );
 
-    const rows = result.rows?._array || [];
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapReminder(row));
   }
 
@@ -1541,7 +1541,7 @@ export class MobileDatabaseService implements IDatabase {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    this.db.execute('UPDATE reminders SET notified_at = ? WHERE id = ?', [now, id]);
+    await this.db.execute('UPDATE reminders SET notified_at = ? WHERE id = ?', [now, id]);
   }
 
   private mapReminder(row: any): Reminder {
@@ -1627,7 +1627,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const createdNow = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO reminders (
         id, type, title, description, related_entity_id, related_entity_type,
         due_at, timezone, status, repeat_schedule, metadata, parent_reminder_id, created_at
@@ -1662,7 +1662,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO calendar_events (
         id, title, description, start_date, end_date, all_day,
         color, remind_at, related_contact_id, created_at, updated_at
@@ -1688,8 +1688,8 @@ export class MobileDatabaseService implements IDatabase {
   async getCalendarEvent(id: string): Promise<CalendarEvent | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM calendar_events WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM calendar_events WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapCalendarEvent(row) : null;
   }
 
@@ -1709,8 +1709,8 @@ export class MobileDatabaseService implements IDatabase {
 
     sql += ' ORDER BY start_date ASC';
 
-    const result = this.db.execute(sql, params);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapCalendarEvent(row));
   }
 
@@ -1733,7 +1733,7 @@ export class MobileDatabaseService implements IDatabase {
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
-      this.db.execute(`UPDATE calendar_events SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE calendar_events SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getCalendarEvent(id))!;
@@ -1741,7 +1741,7 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteCalendarEvent(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM calendar_events WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM calendar_events WHERE id = ?', [id]);
   }
 
   private mapCalendarEvent(row: any): CalendarEvent {
@@ -1771,14 +1771,14 @@ export class MobileDatabaseService implements IDatabase {
     const now = new Date().toISOString();
 
     // Get next sort order
-    const maxResult = this.db.execute(
+    const maxResult = await this.db.execute(
       'SELECT MAX(sort_order) as max_order FROM tasks WHERE status = ?',
       [input.status || 'todo']
     );
-    const maxRow = maxResult.rows?._array?.[0];
+    const maxRow = maxResult.rows?.[0];
     const nextOrder = (maxRow?.max_order || 0) + 1;
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO tasks (
         id, title, description, status, priority, due_date,
         tags, sort_order, recurrence, parent_task_id, created_at, updated_at
@@ -1805,8 +1805,8 @@ export class MobileDatabaseService implements IDatabase {
   async getTask(id: string): Promise<Task | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM tasks WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM tasks WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapTask(row) : null;
   }
 
@@ -1830,8 +1830,8 @@ export class MobileDatabaseService implements IDatabase {
 
     sql += ' ORDER BY sort_order ASC';
 
-    const result = this.db.execute(sql, params);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapTask(row));
   }
 
@@ -1854,7 +1854,7 @@ export class MobileDatabaseService implements IDatabase {
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
-      this.db.execute(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getTask(id))!;
@@ -1862,23 +1862,23 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteTask(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM tasks WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM tasks WHERE id = ?', [id]);
   }
 
   async reorderTasks(taskOrders: { id: string; order: number; status: TaskStatus }[]): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
-    this.db.execute('BEGIN TRANSACTION');
+    await this.db.execute('BEGIN TRANSACTION');
     try {
       for (const task of taskOrders) {
-        this.db.execute(
+        await this.db.execute(
           'UPDATE tasks SET sort_order = ?, status = ? WHERE id = ?',
           [task.order, task.status, task.id]
         );
       }
-      this.db.execute('COMMIT');
+      await this.db.execute('COMMIT');
     } catch (e) {
-      this.db.execute('ROLLBACK');
+      await this.db.execute('ROLLBACK');
       throw e;
     }
   }
@@ -1950,25 +1950,25 @@ export class MobileDatabaseService implements IDatabase {
     const now = new Date().toISOString();
 
     // Get max sort order
-    const maxResult = this.db.execute('SELECT MAX(sort_order) as max FROM note_groups');
-    const maxOrder = maxResult.rows?._array?.[0]?.max || 0;
+    const maxResult = await this.db.execute('SELECT MAX(sort_order) as max FROM note_groups');
+    const maxOrder = maxResult.rows?.[0]?.max || 0;
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO note_groups (id, name, color, icon, sort_order, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, input.name, input.color || '#3b82f6', input.icon || null, maxOrder + 1, now, now]
     );
 
-    const result = this.db.execute('SELECT * FROM note_groups WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM note_groups WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return this.mapNoteGroup(row);
   }
 
   async listNoteGroups(): Promise<NoteGroup[]> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM note_groups ORDER BY sort_order ASC');
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute('SELECT * FROM note_groups ORDER BY sort_order ASC');
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapNoteGroup(row));
   }
 
@@ -1987,19 +1987,19 @@ export class MobileDatabaseService implements IDatabase {
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
-      this.db.execute(`UPDATE note_groups SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE note_groups SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
-    const result = this.db.execute('SELECT * FROM note_groups WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM note_groups WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return this.mapNoteGroup(row);
   }
 
   async deleteNoteGroup(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
     // Set notes in this group to null group
-    this.db.execute('UPDATE notes SET group_id = NULL WHERE group_id = ?', [id]);
-    this.db.execute('DELETE FROM note_groups WHERE id = ?', [id]);
+    await this.db.execute('UPDATE notes SET group_id = NULL WHERE group_id = ?', [id]);
+    await this.db.execute('DELETE FROM note_groups WHERE id = ?', [id]);
   }
 
   private mapNoteGroup(row: any): NoteGroup {
@@ -2024,7 +2024,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO notes (
         id, title, content, is_pinned, color, tags, group_id, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -2047,8 +2047,8 @@ export class MobileDatabaseService implements IDatabase {
   async getNote(id: string): Promise<Note | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM notes WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM notes WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapNote(row) : null;
   }
 
@@ -2078,8 +2078,8 @@ export class MobileDatabaseService implements IDatabase {
 
     sql += ' ORDER BY is_pinned DESC, updated_at DESC';
 
-    const result = this.db.execute(sql, params);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapNote(row));
   }
 
@@ -2100,7 +2100,7 @@ export class MobileDatabaseService implements IDatabase {
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
-      this.db.execute(`UPDATE notes SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE notes SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getNote(id))!;
@@ -2108,7 +2108,7 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteNote(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM notes WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM notes WHERE id = ?', [id]);
   }
 
   private mapNote(row: any): Note {
@@ -2135,7 +2135,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO expenses (
         id, amount, currency, category, description, date,
         tags, receipt_path, created_at
@@ -2159,8 +2159,8 @@ export class MobileDatabaseService implements IDatabase {
   async getExpense(id: string): Promise<Expense | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM expenses WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM expenses WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapExpense(row) : null;
   }
 
@@ -2182,8 +2182,8 @@ export class MobileDatabaseService implements IDatabase {
 
     sql += ' ORDER BY date DESC, created_at DESC';
 
-    const result = this.db.execute(sql, params);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapExpense(row));
   }
 
@@ -2203,7 +2203,7 @@ export class MobileDatabaseService implements IDatabase {
 
     if (updates.length > 0) {
       values.push(id);
-      this.db.execute(`UPDATE expenses SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE expenses SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getExpense(id))!;
@@ -2211,7 +2211,7 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteExpense(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM expenses WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM expenses WHERE id = ?', [id]);
   }
 
   async getExpenseSummary(filter?: { fromDate?: string; toDate?: string }): Promise<ExpenseSummary> {
@@ -2224,25 +2224,25 @@ export class MobileDatabaseService implements IDatabase {
     if (filter?.toDate) { whereClause += ' AND date <= ?'; params.push(filter.toDate); }
 
     // Total
-    const totalResult = this.db.execute(
+    const totalResult = await this.db.execute(
       `SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE ${whereClause}`,
       params
     );
-    const totalRow = totalResult.rows?._array?.[0];
+    const totalRow = totalResult.rows?.[0];
 
     // By category
-    const categoryResult = this.db.execute(
+    const categoryResult = await this.db.execute(
       `SELECT category, COALESCE(SUM(amount), 0) as total FROM expenses WHERE ${whereClause} GROUP BY category`,
       params
     );
-    const categoryRows = categoryResult.rows?._array || [];
+    const categoryRows = categoryResult.rows || [];
 
     // By month
-    const monthResult = this.db.execute(
+    const monthResult = await this.db.execute(
       `SELECT strftime('%Y-%m', date) as month, COALESCE(SUM(amount), 0) as total FROM expenses WHERE ${whereClause} GROUP BY month ORDER BY month DESC`,
       params
     );
-    const monthRows = monthResult.rows?._array || [];
+    const monthRows = monthResult.rows || [];
 
     const byCategory: Record<ExpenseCategory, number> = {
       food: 0, transport: 0, utilities: 0, entertainment: 0,
@@ -2289,7 +2289,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO docx_templates (
         id, name, original_file_name, file_path, variables, variable_details,
         created_at, updated_at
@@ -2312,24 +2312,24 @@ export class MobileDatabaseService implements IDatabase {
   async getDocxTemplate(id: string): Promise<UploadedDocxTemplate | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM docx_templates WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM docx_templates WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapDocxTemplate(row) : null;
   }
 
   async listDocxTemplates(): Promise<UploadedDocxTemplate[]> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute(
+    const result = await this.db.execute(
       'SELECT * FROM docx_templates ORDER BY updated_at DESC'
     );
-    const rows = result.rows?._array || [];
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapDocxTemplate(row));
   }
 
   async deleteDocxTemplate(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM docx_templates WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM docx_templates WHERE id = ?', [id]);
   }
 
   private mapDocxTemplate(row: any): UploadedDocxTemplate {
@@ -2355,7 +2355,7 @@ export class MobileDatabaseService implements IDatabase {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    this.db.execute(
+    await this.db.execute(
       `INSERT INTO rich_documents (
         id, title, content, page_color, is_template, placeholders,
         created_at, updated_at
@@ -2378,8 +2378,8 @@ export class MobileDatabaseService implements IDatabase {
   async getRichDocument(id: string): Promise<RichDocument | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = this.db.execute('SELECT * FROM rich_documents WHERE id = ?', [id]);
-    const row = result.rows?._array?.[0];
+    const result = await this.db.execute('SELECT * FROM rich_documents WHERE id = ?', [id]);
+    const row = result.rows?.[0];
     return row ? this.mapRichDocument(row) : null;
   }
 
@@ -2396,8 +2396,8 @@ export class MobileDatabaseService implements IDatabase {
 
     sql += ' ORDER BY updated_at DESC';
 
-    const result = this.db.execute(sql, params);
-    const rows = result.rows?._array || [];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows || [];
     return rows.map((row: any) => this.mapRichDocument(row));
   }
 
@@ -2417,7 +2417,7 @@ export class MobileDatabaseService implements IDatabase {
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
-      this.db.execute(`UPDATE rich_documents SET ${updates.join(', ')} WHERE id = ?`, values);
+      await this.db.execute(`UPDATE rich_documents SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     return (await this.getRichDocument(id))!;
@@ -2425,7 +2425,7 @@ export class MobileDatabaseService implements IDatabase {
 
   async deleteRichDocument(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.execute('DELETE FROM rich_documents WHERE id = ?', [id]);
+    await this.db.execute('DELETE FROM rich_documents WHERE id = ?', [id]);
   }
 
   private mapRichDocument(row: any): RichDocument {
