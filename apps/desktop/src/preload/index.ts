@@ -546,6 +546,14 @@ const api = {
 
     openBackupsFolder: (): Promise<{ success: boolean; path: string; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_OPEN_BACKUPS_FOLDER),
+
+    vacuum: (): Promise<{
+      success: boolean;
+      freedBytes?: number;
+      sizeBefore?: number;
+      sizeAfter?: number;
+      error?: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_VACUUM),
   },
 
   // Automation Rules

@@ -57,6 +57,7 @@ export interface IDatabase {
 
   // Diagnostics
   checkIntegrity(): Promise<{ ok: boolean; issues: string[] }>;
+  vacuum(): Promise<{ freedBytes: number; sizeBefore: number; sizeAfter: number }>;
 
   // Templates
   createTemplate(input: CreateTemplateInput): Promise<Template>;

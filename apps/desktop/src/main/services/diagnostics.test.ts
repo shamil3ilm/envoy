@@ -18,6 +18,7 @@ import {
   collectStorageStats,
   openBackupsFolder,
   runDatabaseIntegrityCheck,
+  runDatabaseVacuum,
 } from './diagnostics';
 
 let userDataDir: string;
@@ -109,5 +110,29 @@ describe('openBackupsFolder', () => {
     const result = await openBackupsFolder();
     expect(result.success).toBe(false);
     expect(result.error).toBe('No application registered for jsonl');
+  });
+});
+
+describe('runDatabaseVacuum', () => {
+  it('returns success with freed byte counts', async () => {
+    const db = {
+      vacuum: async () => ({ freedBytes: 12345, sizeBefore: 200000, sizeAfter: 187655 }),
+    };
+    const result = await runDatabaseVacuum(db as never);
+    expect(result.success).toBe(true);
+    expect(result.freedBytes).toBe(12345);
+    expect(result.sizeBefore).toBe(200000);
+    expect(result.sizeAfter).toBe(187655);
+  });
+
+  it('catches thrown errors and returns them as error', async () => {
+    const db = {
+      vacuum: async () => {
+        throw new Error('database is locked');
+      },
+    };
+    const result = await runDatabaseVacuum(db as never);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('database is locked');
   });
 });

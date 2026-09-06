@@ -12,7 +12,7 @@ import { logger } from './services/logger';
 import { buildMailtoUrl, isSafeExternalUrl, isSafeUwpFamilyName, sanitizeEmail } from './services/security';
 import { collectBackup, inspectBackupFile, restoreEnvelope, writeBackupFile } from './services/backup';
 import { getAutoBackupStatus, newestAutoBackupPath, startAutoBackup } from './services/backup-scheduler';
-import { collectStorageStats, openBackupsFolder, runDatabaseIntegrityCheck } from './services/diagnostics';
+import { collectStorageStats, openBackupsFolder, runDatabaseIntegrityCheck, runDatabaseVacuum } from './services/diagnostics';
 import { logBackupEvent } from './services/backup-audit';
 import {
   csvImportPath,
@@ -2123,6 +2123,10 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_OPEN_BACKUPS_FOLDER, async () => {
     return openBackupsFolder();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_VACUUM, async () => {
+    return runDatabaseVacuum(database);
   });
 
   ipcMain.handle(
