@@ -19,6 +19,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
   supports contacts / templates / snippets / tasks / notes / expenses /
   richDocuments; reminders / calendar / groups / audit are deferred to a
   follow-up because their create signatures need input adapters.
+- Mobile **backup export + restore** — Settings → Data & Backup exports
+  via the RN Share sheet and restores by pasting the JSON back in with a
+  preview step. Envelopes exported from either platform interoperate.
 - Mobile **global search modal** — Dashboard 🔍 button opens a full-screen
   search that fans out to 8 entity types in parallel, groups matches by
   type, and taps route into the owning tab+stack. 200 ms debounce, `<2`
