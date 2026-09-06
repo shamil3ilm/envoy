@@ -2609,6 +2609,14 @@ export class SQLiteDatabaseService {
     return { ok, issues: ok ? [] : messages };
   }
 
+  async vacuum(): Promise<{ freedBytes: number; sizeBefore: number; sizeAfter: number }> {
+    if (!this.db) throw new Error('Database not initialized');
+    const sizeBefore = fs.existsSync(this.dataPath) ? fs.statSync(this.dataPath).size : 0;
+    this.db.exec('VACUUM');
+    const sizeAfter = fs.existsSync(this.dataPath) ? fs.statSync(this.dataPath).size : 0;
+    return { freedBytes: Math.max(0, sizeBefore - sizeAfter), sizeBefore, sizeAfter };
+  }
+
   async backup(backupPath: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 

@@ -429,6 +429,34 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       keywords: ['storage', 'stats', 'size', 'diagnostics', 'usage'],
       section: 'actions',
     },
+    {
+      id: 'action-diagnostics-vacuum',
+      title: 'Compact Database (VACUUM)',
+      description: 'Reclaim unused space from the SQLite file',
+      icon: <Database className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.diagnostics.vacuum();
+          if (result.success) {
+            const fmt = (b: number | undefined) =>
+              b == null ? '?' : `${(b / (1024 * 1024)).toFixed(2)} MB`;
+            // eslint-disable-next-line no-console
+            console.info(
+              `VACUUM freed ${fmt(result.freedBytes)} (${fmt(result.sizeBefore)} → ${fmt(result.sizeAfter)})`
+            );
+          } else {
+            // eslint-disable-next-line no-console
+            console.error('VACUUM failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('VACUUM failed', err);
+        }
+      },
+      keywords: ['vacuum', 'compact', 'shrink', 'reclaim', 'space', 'diagnostics'],
+      section: 'actions',
+    },
   ];
 
   const filteredCommands = commands.filter((cmd) => {

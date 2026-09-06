@@ -2470,4 +2470,23 @@ export class MobileDatabaseService implements IDatabase {
     const ok = messages.length === 1 && messages[0] === 'ok';
     return { ok, issues: ok ? [] : messages };
   }
+
+  async vacuum(): Promise<{ freedBytes: number; sizeBefore: number; sizeAfter: number }> {
+    if (!this.db) throw new Error('Database not initialized');
+    // op-sqlite doesn't expose the file path directly, so we approximate the
+    // reclaimed space via PRAGMA page_count * page_size before and after.
+    const sizeOf = async () => {
+      const [pageCountResult, pageSizeResult] = await Promise.all([
+        this.db!.execute('PRAGMA page_count'),
+        this.db!.execute('PRAGMA page_size'),
+      ]);
+      const pageCount = Number((pageCountResult.rows?.[0] as any)?.page_count ?? 0);
+      const pageSize = Number((pageSizeResult.rows?.[0] as any)?.page_size ?? 0);
+      return pageCount * pageSize;
+    };
+    const sizeBefore = await sizeOf();
+    await this.db.execute('VACUUM');
+    const sizeAfter = await sizeOf();
+    return { freedBytes: Math.max(0, sizeBefore - sizeAfter), sizeBefore, sizeAfter };
+  }
 }

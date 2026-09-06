@@ -90,6 +90,22 @@ function safeSize(file: string): number | null {
   }
 }
 
+export async function runDatabaseVacuum(
+  db: IDatabase
+): Promise<{ success: boolean; freedBytes?: number; sizeBefore?: number; sizeAfter?: number; error?: string }> {
+  try {
+    const result = await db.vacuum();
+    logger.info('Database VACUUM ran', result);
+    return { success: true, ...result };
+  } catch (err) {
+    logger.error('Database VACUUM failed', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Vacuum failed',
+    };
+  }
+}
+
 export async function runDatabaseIntegrityCheck(
   db: IDatabase
 ): Promise<{ ok: boolean; issues: string[]; error?: string }> {
