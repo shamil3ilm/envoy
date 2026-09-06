@@ -492,6 +492,27 @@ const api = {
         }
       | { success: false; cancelled?: boolean; error?: string }
     > => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_RESTORE),
+
+    autoStatus: (): Promise<{
+      success: boolean;
+      enabled: boolean;
+      intervalHours: number;
+      keepCount: number;
+      lastRunAt: string | null;
+      fileCount: number;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_AUTO_STATUS),
+
+    autoSet: (params: {
+      enabled: boolean;
+      intervalHours?: number;
+      keepCount?: number;
+    }): Promise<
+      | {
+          success: true;
+          autoBackup: { enabled: boolean; intervalHours: number; keepCount: number };
+        }
+      | { success: false; error?: string }
+    > => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_AUTO_SET, params),
   },
 
   // Automation Rules

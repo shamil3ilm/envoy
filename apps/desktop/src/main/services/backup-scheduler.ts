@@ -129,6 +129,24 @@ export function stopAutoBackup(): void {
   }
 }
 
+export function getAutoBackupStatus(): {
+  enabled: boolean;
+  intervalHours: number;
+  keepCount: number;
+  lastRunAt: string | null;
+  fileCount: number;
+} {
+  const dir = autoBackupDir();
+  const last = newestBackupMtime(dir);
+  return {
+    enabled: currentOptions.enabled,
+    intervalHours: currentOptions.intervalHours,
+    keepCount: currentOptions.keepCount,
+    lastRunAt: last ? last.toISOString() : null,
+    fileCount: listAutoBackups(dir).length,
+  };
+}
+
 export function _testResetState(): void {
   stopAutoBackup();
   currentOptions = { ...DEFAULT_OPTIONS };
