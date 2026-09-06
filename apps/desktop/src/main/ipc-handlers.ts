@@ -12,7 +12,7 @@ import { logger } from './services/logger';
 import { buildMailtoUrl, isSafeExternalUrl, isSafeUwpFamilyName, sanitizeEmail } from './services/security';
 import { collectBackup, inspectBackupFile, restoreEnvelope, writeBackupFile } from './services/backup';
 import { getAutoBackupStatus, newestAutoBackupPath, startAutoBackup } from './services/backup-scheduler';
-import { collectStorageStats, openBackupsFolder, runDatabaseIntegrityCheck, runDatabaseVacuum } from './services/diagnostics';
+import { collectDebugInfo, collectStorageStats, openBackupsFolder, runDatabaseIntegrityCheck, runDatabaseVacuum } from './services/diagnostics';
 import { logBackupEvent } from './services/backup-audit';
 import {
   csvImportPath,
@@ -2127,6 +2127,19 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_VACUUM, async () => {
     return runDatabaseVacuum(database);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_DEBUG_INFO, async () => {
+    try {
+      const text = await collectDebugInfo(database);
+      return { success: true, text };
+    } catch (err) {
+      logger.error('DIAGNOSTICS_DEBUG_INFO failed', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Debug info collection failed',
+      };
+    }
   });
 
   ipcMain.handle(
