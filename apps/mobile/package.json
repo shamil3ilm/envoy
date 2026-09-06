@@ -26,6 +26,7 @@
     "lucide-react-native": "^0.400.0",
     "nativewind": "^4.1.0",
     "nunjucks": "^3.2.4",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.0",
     "react-native": "0.83.1",
     "react-native-draggable-flatlist": "^4.0.0",
