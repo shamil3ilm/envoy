@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { Reminder, Task, ScheduledMessage, AuditLog } from '@envoy/shared';
 import { useDatabase, useDatabaseReady } from '../contexts/DatabaseContext';
+import { GlobalSearchModal } from '../components/GlobalSearchModal';
 
 interface DashboardStats {
   contacts: number;
@@ -70,6 +71,7 @@ export default function DashboardScreen() {
   const [recentSends, setRecentSends] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!db) return;
@@ -153,13 +155,24 @@ export default function DashboardScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.greetingBlock}>
-        <Text style={styles.greetingHello}>{greeting()}</Text>
-        <Text style={styles.greetingSummary}>
-          {stats.openReminders > 0
-            ? `${stats.openReminders} reminder${stats.openReminders === 1 ? '' : 's'} waiting`
-            : 'Inbox looks clean.'}
-          {stats.scheduledPending > 0 ? ` · ${stats.scheduledPending} scheduled` : ''}
-        </Text>
+        <View style={styles.greetingRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greetingHello}>{greeting()}</Text>
+            <Text style={styles.greetingSummary}>
+              {stats.openReminders > 0
+                ? `${stats.openReminders} reminder${stats.openReminders === 1 ? '' : 's'} waiting`
+                : 'Inbox looks clean.'}
+              {stats.scheduledPending > 0 ? ` · ${stats.scheduledPending} scheduled` : ''}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => setSearchOpen(true)}
+            style={styles.searchButton}
+            accessibilityLabel="Global search"
+          >
+            <Text style={styles.searchButtonText}>🔍</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.statsGrid}>
@@ -233,6 +246,12 @@ export default function DashboardScreen() {
       <View style={styles.footer}>
         <Text style={styles.footerText}>Envoy Mobile</Text>
       </View>
+
+      <GlobalSearchModal
+        visible={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        navigation={navigation}
+      />
     </ScrollView>
   );
 }
@@ -283,8 +302,19 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' },
   greetingBlock: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
+  greetingRow: { flexDirection: 'row', alignItems: 'center' },
   greetingHello: { fontSize: 22, fontWeight: '700', color: '#111827' },
   greetingSummary: { marginTop: 4, fontSize: 13, color: '#6b7280' },
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  searchButtonText: { fontSize: 18 },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
