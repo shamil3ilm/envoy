@@ -12,6 +12,7 @@ import { logger } from './services/logger';
 import { buildMailtoUrl, isSafeExternalUrl, isSafeUwpFamilyName, sanitizeEmail } from './services/security';
 import { collectBackup, inspectBackupFile, restoreEnvelope, writeBackupFile } from './services/backup';
 import { getAutoBackupStatus, newestAutoBackupPath, startAutoBackup } from './services/backup-scheduler';
+import { collectStorageStats, openBackupsFolder, runDatabaseIntegrityCheck } from './services/diagnostics';
 import {
   csvImportPath,
   csvExportPath,
@@ -2103,6 +2104,18 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC_CHANNELS.BACKUP_AUTO_STATUS, async () => {
     return { success: true, ...getAutoBackupStatus() };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_CHECK_DB, async () => {
+    return runDatabaseIntegrityCheck(database);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_STATS, async () => {
+    return { success: true, ...collectStorageStats() };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_OPEN_BACKUPS_FOLDER, async () => {
+    return openBackupsFolder();
   });
 
   ipcMain.handle(

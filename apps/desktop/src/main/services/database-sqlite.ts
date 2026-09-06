@@ -2598,6 +2598,17 @@ export class SQLiteDatabaseService {
     }
   }
 
+  async checkIntegrity(): Promise<{ ok: boolean; issues: string[] }> {
+    if (!this.db) throw new Error('Database not initialized');
+    // PRAGMA integrity_check returns a single row 'ok' when the file is
+    // healthy, or one row per issue otherwise. better-sqlite3's pragma()
+    // helper deserializes to an array of { integrity_check: string }.
+    const rows = this.db.pragma('integrity_check') as Array<{ integrity_check: string }>;
+    const messages = rows.map((r) => r.integrity_check);
+    const ok = messages.length === 1 && messages[0] === 'ok';
+    return { ok, issues: ok ? [] : messages };
+  }
+
   async backup(backupPath: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 

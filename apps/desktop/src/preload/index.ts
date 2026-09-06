@@ -527,6 +527,27 @@ const api = {
     > => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_RESTORE_LATEST_AUTO),
   },
 
+  // Diagnostics
+  diagnostics: {
+    checkDb: (): Promise<{ ok: boolean; issues: string[]; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_CHECK_DB),
+
+    stats: (): Promise<{
+      success: boolean;
+      userDataPath: string;
+      databaseFile: string | null;
+      databaseBytes: number | null;
+      backupsPath: string;
+      backupCount: number;
+      backupsBytes: number;
+      logsPath: string;
+      logsBytes: number;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_STATS),
+
+    openBackupsFolder: (): Promise<{ success: boolean; path: string; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_OPEN_BACKUPS_FOLDER),
+  },
+
   // Automation Rules
   rules: {
     create: (input: CreateRuleInput): Promise<AutomationRule> =>

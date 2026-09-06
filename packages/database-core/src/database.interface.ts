@@ -174,6 +174,9 @@ export interface IDatabase {
   updateNoteGroup(id: string, input: UpdateNoteGroupInput): Promise<NoteGroup>;
   deleteNoteGroup(id: string): Promise<void>;
 
+  // Diagnostics
+  checkIntegrity(): Promise<{ ok: boolean; issues: string[] }>;
+
   // Notes
   createNote(input: CreateNoteInput): Promise<Note>;
   getNote(id: string): Promise<Note | null>;

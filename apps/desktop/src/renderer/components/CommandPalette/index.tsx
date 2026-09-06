@@ -20,6 +20,7 @@ import {
   StickyNote,
   Zap,
   DollarSign,
+  Database,
   Loader2,
 } from 'lucide-react';
 
@@ -352,6 +353,54 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         }
       },
       keywords: ['backup', 'restore', 'latest', 'auto', 'recover', 'undo'],
+      section: 'actions',
+    },
+    {
+      id: 'action-diagnostics-check-db',
+      title: 'Check Database Integrity',
+      description: 'Run PRAGMA integrity_check on the SQLite file',
+      icon: <Database className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.diagnostics.checkDb();
+          if (result.ok) {
+            // eslint-disable-next-line no-console
+            console.info('Database integrity OK');
+          } else {
+            // eslint-disable-next-line no-console
+            console.warn(
+              'Database integrity issues:',
+              result.error ?? result.issues.join('; ')
+            );
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Integrity check failed', err);
+        }
+      },
+      keywords: ['diagnostics', 'integrity', 'check', 'database', 'health', 'sqlite'],
+      section: 'actions',
+    },
+    {
+      id: 'action-diagnostics-open-backups-folder',
+      title: 'Open Backups Folder',
+      description: 'Reveal userData/backups in the OS file manager',
+      icon: <Database className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.diagnostics.openBackupsFolder();
+          if (!result.success) {
+            // eslint-disable-next-line no-console
+            console.error('Open backups folder failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Open backups folder failed', err);
+        }
+      },
+      keywords: ['open', 'reveal', 'backups', 'folder', 'files', 'explorer', 'finder'],
       section: 'actions',
     },
   ];
