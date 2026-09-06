@@ -5,19 +5,22 @@ import App from './App';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import './sentry';
 import './styles/index.css';
 
-// Use HashRouter for Electron compatibility (works with file:// protocol)
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <HashRouter>
-      <ThemeProvider>
-        <ToastProvider>
-          <SettingsProvider>
-            <App />
-          </SettingsProvider>
-        </ToastProvider>
-      </ThemeProvider>
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <ThemeProvider>
+          <ToastProvider>
+            <SettingsProvider>
+              <App />
+            </SettingsProvider>
+          </ToastProvider>
+        </ThemeProvider>
+      </HashRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 );
