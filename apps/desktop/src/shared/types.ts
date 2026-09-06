@@ -643,6 +643,9 @@ export const IPC_CHANNELS = {
   RULE_DELETE: 'rule:delete',
   RULE_GET: 'rule:get',
   RULE_LIST: 'rule:list',
+
+  // Data backup & restore
+  BACKUP_EXPORT: 'backup:export',
 } as const;
 
 // ============================================
