@@ -403,6 +403,32 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       keywords: ['open', 'reveal', 'backups', 'folder', 'files', 'explorer', 'finder'],
       section: 'actions',
     },
+    {
+      id: 'action-diagnostics-stats',
+      title: 'Show Storage Stats',
+      description: 'Log DB size, backup count, and log size',
+      icon: <Database className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const s = await window.envoy.diagnostics.stats();
+          const fmt = (bytes: number | null | undefined) =>
+            bytes == null ? 'n/a' : `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+          // eslint-disable-next-line no-console
+          console.info('Envoy storage stats', {
+            userData: s.userDataPath,
+            database: `${s.databaseFile ?? '(none)'} — ${fmt(s.databaseBytes)}`,
+            backups: `${s.backupCount} file(s) — ${fmt(s.backupsBytes)} in ${s.backupsPath}`,
+            logs: `${fmt(s.logsBytes)} in ${s.logsPath}`,
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Storage stats failed', err);
+        }
+      },
+      keywords: ['storage', 'stats', 'size', 'diagnostics', 'usage'],
+      section: 'actions',
+    },
   ];
 
   const filteredCommands = commands.filter((cmd) => {

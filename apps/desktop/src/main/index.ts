@@ -15,6 +15,7 @@ import { isSafeExternalUrl } from './services/security';
 import { startAutoUpdater, installUpdateNow } from './services/updater';
 import { initSentry } from './services/sentry';
 import { startAutoBackup } from './services/backup-scheduler';
+import { runDatabaseIntegrityCheck } from './services/diagnostics';
 
 initLogger();
 initSentry();
@@ -249,6 +250,20 @@ async function initialize(): Promise<void> {
   } catch (err) {
     logger.error('Failed to start auto-backup scheduler', err);
   }
+
+  // Kick off an integrity check in the background so it doesn't block window
+  // creation. A corrupted database gets logged loudly so the user can spot
+  // trouble in the log file before symptoms surface in the UI.
+  runDatabaseIntegrityCheck(database as any)
+    .then((result) => {
+      if (!result.ok) {
+        logger.warn('Database integrity check reported issues on startup', {
+          issues: result.issues,
+          error: result.error,
+        });
+      }
+    })
+    .catch((err) => logger.error('Startup integrity check threw', err));
 }
 
 app.on('ready', async () => {
