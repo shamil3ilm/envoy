@@ -18,6 +18,28 @@ interface ServerOptions {
   token: string;
 }
 
+// Simple in-memory rate limiter. Tracks (peer IP -> timestamps of recent
+// hits) in a rolling 60-second window. Prevents a broken or malicious
+// client from hammering /envelope with unbounded requests. NOT a
+// substitute for proper auth — which we already have via X-Envoy-Token.
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_HITS = 60;
+const rateBuckets = new Map<string, number[]>();
+
+function isRateLimited(peer: string): boolean {
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  const bucket = rateBuckets.get(peer) ?? [];
+  const trimmed = bucket.filter((ts) => ts > cutoff);
+  trimmed.push(now);
+  rateBuckets.set(peer, trimmed);
+  return trimmed.length > RATE_LIMIT_MAX_HITS;
+}
+
+export function _testResetRateLimits(): void {
+  rateBuckets.clear();
+}
+
 let server: http.Server | null = null;
 let currentDb: IDatabase | null = null;
 let currentToken = '';
@@ -68,6 +90,12 @@ async function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
 
 async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://localhost');
+  const peer = req.socket.remoteAddress ?? 'unknown';
+
+  if (isRateLimited(peer)) {
+    sendJson(res, 429, { error: 'Rate limit exceeded' });
+    return;
+  }
 
   // Ping is unauthenticated — used by mobile to confirm reachability + version.
   if (url.pathname === '/envoy/v1/ping' && req.method === 'GET') {
@@ -84,8 +112,6 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
     sendJson(res, 401, { error: 'Missing or invalid X-Envoy-Token' });
     return;
   }
-
-  const peer = req.socket.remoteAddress ?? 'unknown';
 
   if (url.pathname === '/envoy/v1/envelope' && req.method === 'GET') {
     try {

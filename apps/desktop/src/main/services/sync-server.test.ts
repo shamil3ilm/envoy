@@ -47,6 +47,7 @@ vi.mock('./backup', () => ({
 }));
 
 import {
+  _testResetRateLimits,
   buildPairingUrl,
   generateToken,
   getLanAddresses,
@@ -102,6 +103,7 @@ async function request(
 
 beforeEach(() => {
   stopSyncServer();
+  _testResetRateLimits();
 });
 
 afterEach(() => {
@@ -213,6 +215,24 @@ describe('startSyncServer', () => {
     stopSyncServer();
     // Next ping attempt should fail-fast (connection refused).
     await expect(request(47834, '/envoy/v1/ping')).rejects.toBeTruthy();
+  });
+});
+
+describe('rate limiting', () => {
+  it('returns 429 after the per-IP hit budget is exhausted', async () => {
+    startSyncServer(STUB_DB, { enabled: true, port: 47850, token: 'abc' });
+    await new Promise((r) => setTimeout(r, 20));
+
+    // Fire the budget's worth of pings back-to-back. All should be 200.
+    for (let i = 0; i < 60; i++) {
+      const res = await request(47850, '/envoy/v1/ping');
+      expect(res.status).toBe(200);
+    }
+
+    // One more should trip the limiter.
+    const overflow = await request(47850, '/envoy/v1/ping');
+    expect(overflow.status).toBe(429);
+    expect((overflow.json as any).error).toMatch(/rate limit/i);
   });
 });
 

@@ -35,11 +35,17 @@ Feature parity is close between the two apps; a few desktop-only features are ca
 
 ### Tools
 - **Notes** — Pinned / tagged plain-text notes.
-- **Documents** — Rich-text editor *(desktop, TipTap)* / template-friendly full-screen editor *(mobile)* with placeholder extraction and Share.
+- **Documents** — Rich-text editor *(desktop, TipTap)* / template-friendly full-screen editor *(mobile)*. Mobile also **exports to PDF** via `pdf-lib` (pure JS, no native module).
 - **Expenses** — Tracking, categorization, monthly totals; desktop adds period comparison and charts.
 - **Calculator** — In-app.
 - **Focus Timer** — Pomodoro sessions *(desktop only)*.
 - **Automations** — If-then rules for workflow automation *(desktop only)*.
+
+### Data & sync
+- **Backup export / restore** — JSON envelope covering every user entity, atomic writes, mandatory pre-restore snapshot on desktop. Envelopes exported from either platform interoperate.
+- **Auto-backup schedule** — Desktop writes to `userData/backups/auto-<ts>.json` on a configurable interval with N-newest rotation; shutdown catch-up on quit.
+- **LAN sync** — Desktop hosts an authenticated HTTP endpoint; mobile pulls/pushes the same envelope over your local network. QR-code pairing eliminates hand-typed IPs. Detailed security posture: **[docs/LAN_SYNC.md](./docs/LAN_SYNC.md)**.
+- **Diagnostics** — DB integrity check, storage stats, VACUUM, one-tap debug info bundle for support tickets. All accessible from `Ctrl+K` on desktop and `Settings → Diagnostics` on mobile.
 
 ### Productivity
 - **Dashboard** — Live stats + quick actions + previews of upcoming reminders, priority tasks, recent sends.
