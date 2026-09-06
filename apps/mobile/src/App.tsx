@@ -38,13 +38,13 @@ export default function App() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <SettingsProvider>
-            <DatabaseProvider>
+          <DatabaseProvider>
+            <SettingsProvider>
               <NavigationContainer>
                 <RootNavigator />
               </NavigationContainer>
-            </DatabaseProvider>
-          </SettingsProvider>
+            </SettingsProvider>
+          </DatabaseProvider>
           <Toast />
         </SafeAreaProvider>
       </GestureHandlerRootView>
