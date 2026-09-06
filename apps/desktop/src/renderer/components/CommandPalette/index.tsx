@@ -487,6 +487,90 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       keywords: ['debug', 'support', 'copy', 'info', 'diagnostics', 'about'],
       section: 'actions',
     },
+    {
+      id: 'action-sync-enable',
+      title: 'Enable LAN Sync Server',
+      description: 'Host a token-authenticated HTTP endpoint for mobile pull/push',
+      icon: <Workflow className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.sync.enable();
+          if (result.success) {
+            const summary = `LAN sync on. Token: ${result.token}\nEndpoints: ${(result.addresses ?? []).join(', ')}`;
+            try {
+              await navigator.clipboard.writeText(summary);
+            } catch {
+              /* clipboard may be blocked; still log below */
+            }
+            // eslint-disable-next-line no-console
+            console.info(summary);
+          } else {
+            // eslint-disable-next-line no-console
+            console.error('Enable sync failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Enable sync failed', err);
+        }
+      },
+      keywords: ['sync', 'lan', 'server', 'enable', 'host', 'mobile'],
+      section: 'actions',
+    },
+    {
+      id: 'action-sync-disable',
+      title: 'Disable LAN Sync Server',
+      description: 'Stop hosting; mobile pull/push will no longer work',
+      icon: <Workflow className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const result = await window.envoy.sync.disable();
+          if (result.success) {
+            // eslint-disable-next-line no-console
+            console.info('LAN sync server disabled');
+          } else {
+            // eslint-disable-next-line no-console
+            console.error('Disable sync failed:', result.error);
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Disable sync failed', err);
+        }
+      },
+      keywords: ['sync', 'lan', 'server', 'disable', 'stop'],
+      section: 'actions',
+    },
+    {
+      id: 'action-sync-status',
+      title: 'Show LAN Sync Info',
+      description: 'Log current sync server address, token, and status',
+      icon: <Workflow className="w-4 h-4" />,
+      action: async () => {
+        onClose();
+        try {
+          const status = await window.envoy.sync.status();
+          const summary = [
+            `LAN sync: ${status.enabled ? 'ON' : 'OFF'}`,
+            `Port: ${status.port}`,
+            `Addresses: ${status.addresses.length > 0 ? status.addresses.join(', ') : '(none detected)'}`,
+            `Token: ${status.token || '(none set)'}`,
+          ].join('\n');
+          try {
+            await navigator.clipboard.writeText(summary);
+          } catch {
+            /* clipboard may be blocked */
+          }
+          // eslint-disable-next-line no-console
+          console.info(summary);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Show sync info failed', err);
+        }
+      },
+      keywords: ['sync', 'lan', 'status', 'info', 'address', 'token'],
+      section: 'actions',
+    },
   ];
 
   const filteredCommands = commands.filter((cmd) => {

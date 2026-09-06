@@ -24,6 +24,11 @@ import {
   collectMobileDebugInfo,
   runMobileVacuum,
 } from '../services/MobileDiagnosticsService';
+import {
+  pingDesktop,
+  pullFromDesktop,
+  pushToDesktop,
+} from '../services/MobileSyncService';
 import { Clipboard, TextInput } from 'react-native';
 import type {
   NotificationSoundType,
@@ -264,6 +269,107 @@ export default function SettingsScreen() {
       Alert.alert('Could not collect debug info');
     }
   }, [db, ready]);
+
+  const [syncUrl, setSyncUrl] = useState('');
+  const [syncToken, setSyncToken] = useState('');
+  const [syncBusy, setSyncBusy] = useState(false);
+
+  const runSyncPing = useCallback(async () => {
+    if (!syncUrl.trim()) {
+      Alert.alert('Enter the desktop URL first');
+      return;
+    }
+    setSyncBusy(true);
+    try {
+      const result = await pingDesktop({ url: syncUrl.trim(), token: syncToken.trim() });
+      if (result.ok) {
+        Toast.show({
+          type: 'success',
+          text1: `Desktop reachable`,
+          text2: result.appVersion ? `Envoy ${result.appVersion}` : undefined,
+        });
+      } else {
+        Alert.alert('Not reachable', result.error ?? 'Unknown error');
+      }
+    } finally {
+      setSyncBusy(false);
+    }
+  }, [syncUrl, syncToken]);
+
+  const runSyncPull = useCallback(async () => {
+    if (!ready || !db) return;
+    if (!syncUrl.trim() || !syncToken.trim()) {
+      Alert.alert('URL and token are both required');
+      return;
+    }
+    Alert.alert(
+      'Pull from desktop?',
+      'Adds/updates rows from the desktop. Nothing gets deleted here.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Pull',
+          onPress: async () => {
+            setSyncBusy(true);
+            try {
+              const result = await pullFromDesktop(db, {
+                url: syncUrl.trim(),
+                token: syncToken.trim(),
+              });
+              if (result.success) {
+                Toast.show({
+                  type: 'success',
+                  text1: `Pulled ${result.totalApplied ?? 0} records`,
+                });
+              } else {
+                Alert.alert('Pull failed', result.error ?? 'Unknown error');
+              }
+            } finally {
+              setSyncBusy(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [db, ready, syncUrl, syncToken]);
+
+  const runSyncPush = useCallback(async () => {
+    if (!ready || !db) return;
+    if (!syncUrl.trim() || !syncToken.trim()) {
+      Alert.alert('URL and token are both required');
+      return;
+    }
+    Alert.alert(
+      'Push to desktop?',
+      'Sends the mobile envelope to the desktop for merge. Nothing gets deleted there.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Push',
+          style: 'destructive',
+          onPress: async () => {
+            setSyncBusy(true);
+            try {
+              const result = await pushToDesktop(db, '1.0.0', {
+                url: syncUrl.trim(),
+                token: syncToken.trim(),
+              });
+              if (result.success) {
+                Toast.show({
+                  type: 'success',
+                  text1: `Pushed — desktop applied ${result.totalApplied ?? 0} records`,
+                });
+              } else {
+                Alert.alert('Push failed', result.error ?? 'Unknown error');
+              }
+            } finally {
+              setSyncBusy(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [db, ready, syncUrl, syncToken]);
 
   const toggleSection = useCallback((section: SettingsSection) => {
     setExpandedSection(prev => prev === section ? null : section);
@@ -622,6 +728,73 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* LAN Sync Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
+              <View style={[styles.iconBox, { backgroundColor: '#e0e7ff' }]}>
+                <Text style={styles.iconEmoji}>🔗</Text>
+              </View>
+              <View style={styles.sectionHeaderText}>
+                <Text style={styles.sectionTitle}>LAN Sync</Text>
+                <Text style={styles.sectionSubtitle}>Pull or push against a desktop on the same network</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.sectionContent}>
+            <Text style={styles.restoreLabel}>Desktop URL</Text>
+            <TextInput
+              style={styles.syncInput}
+              placeholder="http://192.168.1.42:47828"
+              placeholderTextColor="#9ca3af"
+              value={syncUrl}
+              onChangeText={setSyncUrl}
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            <Text style={styles.restoreLabel}>Token</Text>
+            <TextInput
+              style={styles.syncInput}
+              placeholder="Paste the token shown on desktop"
+              placeholderTextColor="#9ca3af"
+              value={syncToken}
+              onChangeText={setSyncToken}
+              autoCorrect={false}
+              autoCapitalize="none"
+              secureTextEntry
+            />
+            <View style={styles.syncActions}>
+              <TouchableOpacity
+                style={[styles.syncButtonSecondary, syncBusy && styles.exportButtonDisabled]}
+                onPress={runSyncPing}
+                disabled={syncBusy}
+              >
+                <Text style={styles.syncButtonSecondaryText}>Ping</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.syncButtonPrimary, syncBusy && styles.exportButtonDisabled]}
+                onPress={runSyncPull}
+                disabled={syncBusy}
+              >
+                <Text style={styles.syncButtonPrimaryText}>Pull</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.syncButtonPush, syncBusy && styles.exportButtonDisabled]}
+                onPress={runSyncPush}
+                disabled={syncBusy}
+              >
+                <Text style={styles.syncButtonPrimaryText}>Push</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.exportHint}>
+              On the desktop, run Ctrl+K → "Enable LAN Sync Server", then
+              paste the token here. Pull merges desktop → mobile; Push merges
+              mobile → desktop. Both are additive — nothing gets deleted.
+              Same subnet only; no cloud roundtrip.
+            </Text>
+          </View>
+        </View>
+
         {/* Version Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Envoy Mobile v1.0.0</Text>
@@ -896,6 +1069,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#d1d5db',
   },
   restoreApplyText: { color: 'white', fontSize: 13, fontWeight: '600' },
+  syncInput: {
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: '#111827',
+    marginBottom: 12,
+  },
+  syncActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  syncButtonSecondary: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncButtonSecondaryText: { color: '#374151', fontSize: 13, fontWeight: '600' },
+  syncButtonPrimary: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#3b82f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncButtonPrimaryText: { color: 'white', fontSize: 13, fontWeight: '600' },
+  syncButtonPush: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#10b981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   footer: {
     alignItems: 'center',
     paddingVertical: 24,

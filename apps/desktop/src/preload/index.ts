@@ -559,6 +559,32 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_DEBUG_INFO),
   },
 
+  // LAN sync (desktop hosts, mobile pulls/pushes)
+  sync: {
+    status: (): Promise<{
+      success: boolean;
+      enabled: boolean;
+      port: number;
+      addresses: string[];
+      hasToken: boolean;
+      token: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.SYNC_STATUS),
+
+    enable: (): Promise<{
+      success: boolean;
+      token?: string;
+      port?: number;
+      addresses?: string[];
+      error?: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.SYNC_ENABLE),
+
+    disable: (): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SYNC_DISABLE),
+
+    regenerateToken: (): Promise<{ success: boolean; token?: string; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SYNC_REGENERATE_TOKEN),
+  },
+
   // Automation Rules
   rules: {
     create: (input: CreateRuleInput): Promise<AutomationRule> =>

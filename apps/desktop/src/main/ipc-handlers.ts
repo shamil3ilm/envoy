@@ -14,6 +14,7 @@ import { collectBackup, inspectBackupFile, restoreEnvelope, writeBackupFile } fr
 import { getAutoBackupStatus, newestAutoBackupPath, startAutoBackup } from './services/backup-scheduler';
 import { collectDebugInfo, collectStorageStats, openBackupsFolder, runDatabaseIntegrityCheck, runDatabaseVacuum } from './services/diagnostics';
 import { logBackupEvent } from './services/backup-audit';
+import { generateToken, getSyncServerStatus, startSyncServer, stopSyncServer } from './services/sync-server';
 import {
   csvImportPath,
   csvExportPath,
@@ -2139,6 +2140,69 @@ export function registerIpcHandlers(
         success: false,
         error: err instanceof Error ? err.message : 'Debug info collection failed',
       };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SYNC_STATUS, async () => {
+    const status = getSyncServerStatus();
+    const current = await database.getSettings();
+    const sync = (current as any).sync;
+    return {
+      success: true,
+      ...status,
+      token: sync?.token ?? '',
+    };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SYNC_ENABLE, async () => {
+    try {
+      const current = await database.getSettings();
+      const existing = (current as any).sync;
+      const token = existing?.token || generateToken();
+      const port = existing?.port || 47828;
+      const next = { ...(current as any), sync: { enabled: true, port, token } };
+      await database.setSettings(next);
+      const started = startSyncServer(database, next.sync);
+      return { success: true, token, port, addresses: started?.url ?? [] };
+    } catch (err) {
+      logger.error('SYNC_ENABLE failed', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Enable failed' };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SYNC_DISABLE, async () => {
+    try {
+      const current = await database.getSettings();
+      const existing = (current as any).sync;
+      const next = {
+        ...(current as any),
+        sync: { enabled: false, port: existing?.port ?? 47828, token: existing?.token ?? '' },
+      };
+      await database.setSettings(next);
+      stopSyncServer();
+      return { success: true };
+    } catch (err) {
+      logger.error('SYNC_DISABLE failed', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Disable failed' };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SYNC_REGENERATE_TOKEN, async () => {
+    try {
+      const current = await database.getSettings();
+      const existing = (current as any).sync;
+      const token = generateToken();
+      const port = existing?.port ?? 47828;
+      const enabled = existing?.enabled ?? false;
+      const next = { ...(current as any), sync: { enabled, port, token } };
+      await database.setSettings(next);
+      if (enabled) {
+        startSyncServer(database, next.sync);
+      }
+      return { success: true, token };
+    } catch (err) {
+      logger.error('SYNC_REGENERATE_TOKEN failed', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Regen failed' };
     }
   });
 
