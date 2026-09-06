@@ -37,7 +37,7 @@ interface SearchResult {
   id: string;
   title: string;
   subtitle?: string;
-  type: 'contact' | 'template' | 'task' | 'note' | 'snippet' | 'expense';
+  type: 'contact' | 'template' | 'task' | 'note' | 'snippet' | 'expense' | 'reminder' | 'document';
   href: string;
 }
 
@@ -48,6 +48,8 @@ const TYPE_CONFIG: Record<SearchResult['type'], { label: string; color: string; 
   note: { label: 'Note', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400', icon: <StickyNote className="w-4 h-4" /> },
   snippet: { label: 'Snippet', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400', icon: <Zap className="w-4 h-4" /> },
   expense: { label: 'Expense', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400', icon: <DollarSign className="w-4 h-4" /> },
+  reminder: { label: 'Reminder', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-400', icon: <Bell className="w-4 h-4" /> },
+  document: { label: 'Document', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400', icon: <FileEdit className="w-4 h-4" /> },
 };
 
 interface CommandPaletteProps {
@@ -242,13 +244,15 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         const q = search;
         const results: SearchResult[] = [];
 
-        const [contacts, tasks, notes, snippets, templates, expenses] = await Promise.all([
+        const [contacts, tasks, notes, snippets, templates, expenses, reminders, documents] = await Promise.all([
           window.envoy.contacts.list({ search: q }).catch(() => []),
           window.envoy.tasks.list({ search: q }).catch(() => []),
           window.envoy.notes.list({ search: q }).catch(() => []),
           window.envoy.snippets.list({ search: q }).catch(() => []),
           window.envoy.templates.list().catch(() => []),
           window.envoy.expenses.list({ search: q }).catch(() => []),
+          window.envoy.reminders.list().catch(() => []),
+          window.envoy.richDocuments.list().catch(() => []),
         ]);
 
         // Contacts
@@ -323,6 +327,40 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
             href: '/expenses',
           });
         });
+
+        // Reminders — client-side filter (list doesn't accept a search param)
+        reminders
+          .filter((r: any) =>
+            r.title?.toLowerCase().includes(qLower) ||
+            r.description?.toLowerCase().includes(qLower)
+          )
+          .slice(0, 5)
+          .forEach((r: any) => {
+            results.push({
+              id: r.id,
+              title: r.title,
+              subtitle: r.dueAt ? new Date(r.dueAt).toLocaleString() : undefined,
+              type: 'reminder',
+              href: '/reminders',
+            });
+          });
+
+        // Rich documents — client-side filter
+        documents
+          .filter((d: any) =>
+            d.title?.toLowerCase().includes(qLower) ||
+            d.content?.toLowerCase().includes(qLower)
+          )
+          .slice(0, 5)
+          .forEach((d: any) => {
+            results.push({
+              id: d.id,
+              title: d.title || 'Untitled document',
+              subtitle: d.isTemplate ? 'Template' : undefined,
+              type: 'document',
+              href: '/documents',
+            });
+          });
 
         setSearchResults(results);
       } catch (err) {

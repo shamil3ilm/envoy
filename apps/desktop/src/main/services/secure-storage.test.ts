@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // must be defined via vi.hoisted() rather than a plain const.
 const { safeStorageMock } = vi.hoisted(() => ({
   safeStorageMock: {
-    isEncryptionAvailable: vi.fn<[], boolean>(),
-    encryptString: vi.fn<[string], Buffer>(),
-    decryptString: vi.fn<[Buffer], string>(),
+    isEncryptionAvailable: vi.fn(),
+    encryptString: vi.fn(),
+    decryptString: vi.fn(),
   },
 }));
 
