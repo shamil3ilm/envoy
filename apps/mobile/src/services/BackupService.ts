@@ -198,6 +198,20 @@ interface RowLike {
   id?: unknown;
 }
 
+// Fields that never come from user input and would confuse the DB layer if
+// echoed back on create/update. Stripped uniformly across every entity.
+const NON_INPUT_FIELDS = ['id', 'createdAt', 'updatedAt'];
+
+function stripNonInputFields<T extends Record<string, unknown>>(row: T): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (!NON_INPUT_FIELDS.includes(key)) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
 async function upsertList<T extends RowLike>(
   rows: T[],
   get: (id: string) => Promise<unknown>,
@@ -213,7 +227,7 @@ async function upsertList<T extends RowLike>(
     }
     const id = typeof row.id === 'string' ? row.id : null;
     try {
-      const { id: _stripId, createdAt, updatedAt, ...input } = row as any;
+      const input = stripNonInputFields(row as Record<string, unknown>);
       if (id && (await get(id))) {
         await update(id, input);
       } else {
@@ -250,6 +264,15 @@ interface RestoreDatabase {
   createRichDocument: (input: any) => Promise<{ id: string }>;
   updateRichDocument: (id: string, input: any) => Promise<unknown>;
   getRichDocument: (id: string) => Promise<unknown>;
+  createReminder: (input: any) => Promise<{ id: string }>;
+  updateReminder: (id: string, input: any) => Promise<unknown>;
+  getReminder: (id: string) => Promise<unknown>;
+  createCalendarEvent: (input: any) => Promise<{ id: string }>;
+  updateCalendarEvent: (id: string, input: any) => Promise<unknown>;
+  getCalendarEvent: (id: string) => Promise<unknown>;
+  createScheduledMessage: (input: any) => Promise<{ id: string }>;
+  updateScheduledMessage: (id: string, input: any) => Promise<unknown>;
+  getScheduledMessage: (id: string) => Promise<unknown>;
 }
 
 /**
@@ -328,6 +351,27 @@ export async function restoreMobileBackup(
     db.getRichDocument,
     db.createRichDocument,
     db.updateRichDocument
+  );
+  await runSet(
+    'reminders',
+    (entities.reminders as RowLike[]) ?? [],
+    db.getReminder,
+    db.createReminder,
+    db.updateReminder
+  );
+  await runSet(
+    'calendarEvents',
+    (entities.calendarEvents as RowLike[]) ?? [],
+    db.getCalendarEvent,
+    db.createCalendarEvent,
+    db.updateCalendarEvent
+  );
+  await runSet(
+    'scheduledMessages',
+    (entities.scheduledMessages as RowLike[]) ?? [],
+    db.getScheduledMessage,
+    db.createScheduledMessage,
+    db.updateScheduledMessage
   );
 
   const totalApplied = Object.values(applied).reduce((sum, n) => sum + n, 0);
