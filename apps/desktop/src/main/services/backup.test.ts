@@ -279,6 +279,10 @@ describe('restoreEnvelope', () => {
     const notes = entity('notes');
     const expenses = entity('expenses');
     const docs = entity('docs');
+    const reminders = entity('reminders');
+    const calendarEvents = entity('calendarEvents');
+    const contactGroups = entity('contactGroups');
+    const scheduledMessages = entity('scheduledMessages');
 
     return {
       db: {
@@ -303,6 +307,18 @@ describe('restoreEnvelope', () => {
         getRichDocument: docs.get,
         createRichDocument: docs.create,
         updateRichDocument: docs.update,
+        getReminder: reminders.get,
+        createReminder: reminders.create,
+        updateReminder: reminders.update,
+        getCalendarEvent: calendarEvents.get,
+        createCalendarEvent: calendarEvents.create,
+        updateCalendarEvent: calendarEvents.update,
+        getContactGroup: contactGroups.get,
+        createContactGroup: contactGroups.create,
+        updateContactGroup: contactGroups.update,
+        getScheduledMessage: scheduledMessages.get,
+        createScheduledMessage: scheduledMessages.create,
+        updateScheduledMessage: scheduledMessages.update,
       },
       log,
     };
@@ -363,5 +379,25 @@ describe('restoreEnvelope', () => {
     const result = await restoreEnvelope(db, envelope);
     expect(result.applied.contacts).toBe(0);
     expect(result.skipped.contacts).toBe(1);
+  });
+
+  it('restores reminders / calendar / contact groups / scheduled messages', async () => {
+    const { db, log } = makeDb();
+    const envelope = makeEnvelope({
+      entities: {
+        ...makeEnvelope().entities,
+        reminders: [{ id: 'r1', title: 'Call Alice' }],
+        calendarEvents: [{ id: 'c1', title: 'Standup' }],
+        contactGroups: [{ id: 'g1', name: 'Family' }],
+        scheduledMessages: [{ id: 'm1', channel: 'email' }],
+      },
+    });
+    const result = await restoreEnvelope(db, envelope);
+    expect(result.applied.reminders).toBe(1);
+    expect(result.applied.calendarEvents).toBe(1);
+    expect(result.applied.contactGroups).toBe(1);
+    expect(result.applied.scheduledMessages).toBe(1);
+    expect(log.filter((l) => l.entity === 'reminders')[0]).toMatchObject({ op: 'create' });
+    expect(log.filter((l) => l.entity === 'calendarEvents')[0]).toMatchObject({ op: 'create' });
   });
 });

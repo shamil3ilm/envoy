@@ -230,6 +230,32 @@ interface RestoreDatabase {
   createRichDocument: (input: any) => Promise<{ id: string }>;
   updateRichDocument: (id: string, input: any) => Promise<unknown>;
   getRichDocument: (id: string) => Promise<unknown>;
+  createReminder: (input: any) => Promise<{ id: string }>;
+  updateReminder: (id: string, input: any) => Promise<unknown>;
+  getReminder: (id: string) => Promise<unknown>;
+  createCalendarEvent: (input: any) => Promise<{ id: string }>;
+  updateCalendarEvent: (id: string, input: any) => Promise<unknown>;
+  getCalendarEvent: (id: string) => Promise<unknown>;
+  createContactGroup: (input: any) => Promise<{ id: string }>;
+  updateContactGroup: (id: string, input: any) => Promise<unknown>;
+  getContactGroup: (id: string) => Promise<unknown>;
+  createScheduledMessage: (input: any) => Promise<{ id: string }>;
+  updateScheduledMessage: (id: string, input: any) => Promise<unknown>;
+  getScheduledMessage: (id: string) => Promise<unknown>;
+}
+
+// Fields that never come from user input and would confuse the DB layer if
+// echoed back on create/update. Stripped uniformly across every entity.
+const NON_INPUT_FIELDS = ['id', 'createdAt', 'updatedAt'];
+
+function stripNonInputFields<T extends Record<string, unknown>>(row: T): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (!NON_INPUT_FIELDS.includes(key)) {
+      out[key] = value;
+    }
+  }
+  return out;
 }
 
 async function upsertList<T extends RowLike>(
@@ -247,7 +273,7 @@ async function upsertList<T extends RowLike>(
     }
     const id = typeof row.id === 'string' ? row.id : null;
     try {
-      const { id: _stripId, createdAt, updatedAt, ...input } = row as any;
+      const input = stripNonInputFields(row as Record<string, unknown>);
       if (id && (await get(id))) {
         await update(id, input);
       } else {
@@ -342,6 +368,42 @@ export async function restoreEnvelope(
   );
   applied.richDocuments = documents.applied;
   skipped.richDocuments = documents.skipped;
+
+  const reminders = await upsertList(
+    envelope.entities.reminders as RowLike[],
+    (id) => db.getReminder(id),
+    (input) => db.createReminder(input),
+    (id, input) => db.updateReminder(id, input) as Promise<unknown>
+  );
+  applied.reminders = reminders.applied;
+  skipped.reminders = reminders.skipped;
+
+  const calendarEvents = await upsertList(
+    envelope.entities.calendarEvents as RowLike[],
+    (id) => db.getCalendarEvent(id),
+    (input) => db.createCalendarEvent(input),
+    (id, input) => db.updateCalendarEvent(id, input) as Promise<unknown>
+  );
+  applied.calendarEvents = calendarEvents.applied;
+  skipped.calendarEvents = calendarEvents.skipped;
+
+  const contactGroups = await upsertList(
+    envelope.entities.contactGroups as RowLike[],
+    (id) => db.getContactGroup(id),
+    (input) => db.createContactGroup(input),
+    (id, input) => db.updateContactGroup(id, input) as Promise<unknown>
+  );
+  applied.contactGroups = contactGroups.applied;
+  skipped.contactGroups = contactGroups.skipped;
+
+  const scheduledMessages = await upsertList(
+    envelope.entities.scheduledMessages as RowLike[],
+    (id) => db.getScheduledMessage(id),
+    (input) => db.createScheduledMessage(input),
+    (id, input) => db.updateScheduledMessage(id, input) as Promise<unknown>
+  );
+  applied.scheduledMessages = scheduledMessages.applied;
+  skipped.scheduledMessages = scheduledMessages.skipped;
 
   const totalApplied = Object.values(applied).reduce((sum, n) => sum + n, 0);
   return { applied, skipped, totalApplied };
