@@ -1,57 +1,69 @@
 # Envoy
 
-A personal executive assistant desktop application for managing communications, tasks, documents, and daily workflows — all from one place. Built with Electron, React, and TypeScript.
+A personal executive-assistant application for managing communications, tasks, documents, and daily workflows — desktop first, with a full-featured mobile companion. Built with Electron, React, TypeScript, and React Native.
 
-**Private & Offline** — Envoy runs entirely on your device. There are no external connections, cloud services, or third-party servers involved. Your data never leaves your machine.
+**Local-first.** Your data stays on your device. Optional opt-in telemetry (Sentry) only activates if you set a DSN environment variable.
+
+---
+
+## Apps
+
+### Desktop (`apps/desktop`)
+Electron + React + TypeScript. Runs on Windows, macOS, and Linux. Uses SQLite by default (better-sqlite3), with an optional MySQL backend.
+
+### Mobile (`apps/mobile`)
+React Native (bare workflow) for Android + iOS. Uses op-sqlite for on-device storage. Full CRUD screens for every core entity plus Notifee-powered local reminders and URL-scheme handoff for email / WhatsApp / Teams.
 
 ---
 
 ## Features
 
+Feature parity is close between the two apps; a few desktop-only features are called out below.
+
 ### Communication
-- **Compose** — Create and send messages via email, WhatsApp, or Teams
-- **Templates** — Reusable message templates with Jinja2 variable support
-- **Snippets** — Quick-access text blocks with `#shortcut` syntax
-- **Scheduled Messages** — Schedule messages for future delivery with Kanban board view
-- **History** — Complete log of all sent messages
+- **Compose** — Send via email (`mailto:`), WhatsApp (`wa.me`), or Teams deep link. Templates rendered live with contact data.
+- **Templates** — Reusable Jinja2 / Nunjucks templates with per-channel targeting and tone tagging.
+- **Snippets** — Quick-access text with `/shortcut` syntax and usage counters.
+- **Scheduled** — Queue messages for later delivery *(desktop can auto-send in the background; mobile is view + cancel only for now)*.
+- **History** — Every send lands in the audit log with template, recipient, timestamp, and status.
 
 ### Organization
-- **Contacts** — Contact management with groups, color coding, and timeline view
-- **Calendar** — Event scheduling with day/week/month views
-- **Tasks** — Kanban task board with priorities, due dates, and recurring tasks
-- **Reminders** — Set reminders with notifications
+- **Contacts** — CRUD with groups, tags, custom fields, timeline view *(desktop)*, and last-contacted tracking.
+- **Calendar** — Event scheduling; desktop shows day / week / month, mobile shows a monthly agenda.
+- **Tasks** — Kanban with statuses (todo / in_progress / done / archived), priorities, due dates, and recurring rules *(desktop board, mobile list)*.
+- **Reminders** — Set-once and repeating reminders; local push notifications via Electron Notification (desktop) or Notifee (mobile).
 
 ### Tools
-- **Notes** — Quick notes editor
-- **Documents** — Rich text document editor with DOCX/PDF export
-- **Expenses** — Expense tracking with charts, categories, and period comparison
-- **Calculator** — Built-in calculator
-- **Focus Timer** — Pomodoro-style timer with session tracking
-- **Automations** — If-then automation rules for workflow automation
+- **Notes** — Pinned / tagged plain-text notes.
+- **Documents** — Rich-text editor *(desktop, TipTap)* / template-friendly full-screen editor *(mobile)* with placeholder extraction and Share.
+- **Expenses** — Tracking, categorization, monthly totals; desktop adds period comparison and charts.
+- **Calculator** — In-app.
+- **Focus Timer** — Pomodoro sessions *(desktop only)*.
+- **Automations** — If-then rules for workflow automation *(desktop only)*.
 
 ### Productivity
-- **Dashboard** — Customizable dashboard with draggable, resizable widgets
-- **Command Palette** — Quick navigation and global search (`Ctrl+K`)
-- **Keyboard Shortcuts** — Full keyboard shortcut support
-- **Feature Selection** — Enable only the features you need; hide the rest
-- **Dark Mode** — Light, dark, and system theme support
-- **Collapsible Sidebar** — With custom nav groups
+- **Dashboard** — Live stats + quick actions + previews of upcoming reminders, priority tasks, recent sends.
+- **Command Palette** — `Ctrl+K` global search *(desktop)*.
+- **Keyboard Shortcuts** — Full support *(desktop)*.
+- **Feature Toggles** — Enable only what you use.
+- **Themes** — Light / dark / system *(desktop)*.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Electron 28 |
-| Frontend | React 18, TypeScript, Vite |
-| Styling | Tailwind CSS 3 |
-| State | Zustand, React Context |
-| Routing | React Router 6 |
-| Database | SQLite (better-sqlite3) / MySQL (mysql2) |
-| Template Engine | Python (Jinja2) via JSON-RPC bridge |
-| Rich Text | TipTap |
-| Icons | Lucide React |
+| Layer | Desktop | Mobile |
+|---|---|---|
+| Framework | Electron 31 LTS | React Native 0.83 (bare) |
+| UI | React 18 + Vite | React 19 + React Navigation 7 |
+| Styling | Tailwind CSS 3 | NativeWind 4 + StyleSheet |
+| State | Zustand + Context | Context |
+| Database | better-sqlite3 11 (SQLite) / mysql2 | op-sqlite 9 |
+| Template engine | Jinja2 via Python bridge | Nunjucks (Jinja2-compatible, in-JS) |
+| Notifications | Electron `Notification` | Notifee |
+| Crash reporting | @sentry/electron (opt-in via DSN) | @sentry/react-native (opt-in via DSN) |
+| Auto-update | electron-updater (GitHub Releases) | Play/App Store |
+| Tests | vitest (main-process helpers) | — |
 | Monorepo | Turborepo + npm workspaces |
 
 ---
@@ -60,140 +72,152 @@ A personal executive assistant desktop application for managing communications, 
 
 ```
 envoy/
-  turbo.json                  # Turborepo config
-  package.json                # Root workspace
+  turbo.json                # Turborepo pipeline
+  package.json              # Root workspace + scripts
+  DEPLOYMENT.md             # Release / signing / auto-update guide
+
   packages/
-    shared/                   # @envoy/shared — types & constants
-    database-core/            # @envoy/database-core — DB interface
+    shared/                 # @envoy/shared — types & constants
+    database-core/          # @envoy/database-core — IDatabase interface
+
   apps/
-    desktop/                  # Electron desktop app
-      engine/                 # Python template engine (Jinja2)
-      resources/              # App resources & default templates
-      scripts/                # Launch scripts
+    desktop/                # Electron app
+      engine/               # Python template engine (Jinja2)
+      resources/            # App icons + default templates
       src/
-        main/                 # Electron main process
-          services/           # Database, email, scheduler services
-          ipc-handlers.ts     # IPC request handlers
-          index.ts            # Main entry point
-        preload/              # Preload scripts (window.envoy API)
-        renderer/             # React frontend
-          components/         # Reusable components
-          contexts/           # React contexts (Theme, Settings, Toast)
-          hooks/              # Custom hooks
-          pages/              # Page components (19 pages)
-          utils/              # Utility functions
-        shared/               # Shared types & IPC channel definitions
-    mobile/                   # React Native app (planned)
+        main/
+          services/         # logger, security, secure-storage, updater,
+                            #   sentry, database, email, scheduler, teams
+          ipc-handlers.ts   # IPC handlers (sanitized before shell/file)
+          index.ts          # Sandbox + CSP + navigation lockdown wiring
+        preload/            # contextBridge-exposed window.envoy API
+        renderer/           # React frontend (19 pages)
+      vitest.config.ts      # Test runner
+    mobile/                 # React Native app
+      android/
+        KEYSTORE.md         # Release keystore setup
+      src/
+        contexts/           # Database + Settings + Theme providers
+        navigation/         # Bottom tabs + native stacks
+        screens/            # 17 real CRUD screens
+        services/           # MobileDatabaseService, TemplateEngine,
+                            #   NotificationService, sentry
 ```
 
 ---
 
-## Installation
+## Getting Started
 
 ### Prerequisites
 
-- **Node.js** 18 or later — [Download](https://nodejs.org/)
-- **Python** 3.9 or later — [Download](https://www.python.org/) (for the template engine)
-- **Git** — [Download](https://git-scm.com/)
+- **Node.js** 18+
+- **Python** 3.9+ *(desktop only, for the template engine)*
+- **Git**
+- *(mobile)* Android Studio / Xcode toolchains
 
-### 1. Clone the repository
+### Install
 
 ```bash
 git clone https://github.com/shamil3ilm/envoy.git
 cd envoy
-```
-
-### 2. Install dependencies
-
-```bash
 npm install
 ```
 
-This installs all dependencies for the monorepo including the desktop app, shared packages, and rebuilds native modules (better-sqlite3) for Electron.
+Native modules are rebuilt for Electron automatically via `postinstall`.
 
-### 3. Set up the Python engine (optional)
+### Desktop dev
 
-The Python engine is used for Jinja2 template rendering. If you plan to use message templates:
+```bash
+npm run dev:desktop
+# Then, in a separate terminal:
+cd apps/desktop && npm run start
+```
+
+### Mobile dev
+
+```bash
+npm run dev:mobile
+# Then in another terminal:
+cd apps/mobile && npm run android   # or: npm run ios
+```
+
+### Python engine *(optional)*
+
+Only needed for the desktop app if you want Jinja2 rendering. Mobile uses in-JS Nunjucks and needs no Python.
 
 ```bash
 cd apps/desktop/engine
 pip install -r requirements.txt
-cd ../../..
 ```
 
-### 4. Configure environment (optional)
-
-Only needed if you want to use MySQL instead of the default SQLite database:
+### Verification
 
 ```bash
-cp .env.example .env
-```
-
-Edit `.env` with your MySQL connection details. By default, Envoy uses SQLite which requires no configuration.
-
-### 5. Run in development mode
-
-```bash
-npm run dev:desktop
-```
-
-This starts both the Electron main process (TypeScript compiler in watch mode) and the Vite dev server for the renderer.
-
-Then in a separate terminal, start Electron:
-
-```bash
-cd apps/desktop
-npm run start
-```
-
-### 6. Build for production
-
-Compile the app:
-
-```bash
-cd apps/desktop
-npm run build
-```
-
-Package as an installer:
-
-```bash
-npm run dist
-```
-
-Output files are in `apps/desktop/release/`:
-
-| File | Description |
-|------|-------------|
-| `Envoy Setup 1.0.0.exe` | Windows installer (NSIS) |
-| `Envoy 1.0.0.exe` | Windows portable (no install needed) |
-
-To build an unpacked directory instead:
-
-```bash
-npm run pack
+npm run typecheck   # tsc --noEmit across all workspaces
+npm test            # vitest (security helpers, 14 tests)
+npm run verify      # typecheck + test together
 ```
 
 ---
 
-## Database
+## Building
 
-Envoy supports two database backends:
+### Desktop
 
-- **SQLite** (default) — Zero configuration, stores data in a local `.db` file. Recommended for most users.
-- **MySQL** — For users who prefer a full database server. Configure via `.env` file.
+```bash
+cd apps/desktop
+npm run build       # tsc + vite build
+npm run pack        # unpacked dir
+npm run dist        # signed installer (needs signing env vars — see DEPLOYMENT.md)
+```
 
-Database migrations run automatically on startup — no manual setup required.
+Output lands in `apps/desktop/release/`.
+
+### Mobile
+
+```bash
+cd apps/mobile
+npm run build:android   # AAB via Gradle (needs keystore — see android/KEYSTORE.md)
+npm run build:ios       # xcodebuild archive
+```
+
+---
+
+## Deploying
+
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for:
+- Windows / macOS code-signing env vars
+- macOS notarization
+- Auto-update publish target (GitHub Releases by default)
+- Android release keystore setup (see `apps/mobile/android/KEYSTORE.md`)
+- CI secret handling checklist
+
+Auto-update is already wired via `electron-updater`; every packaged build checks GitHub Releases on start and every 4 hours.
+
+---
+
+## Security posture
+
+The desktop app is hardened for third-party distribution:
+
+- Electron `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`, `webviewTag: false`
+- Strict CSP via `session.webRequest.onHeadersReceived` (+ `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`)
+- Off-app navigation blocked; new windows routed through `shell.openExternal` after URL sanitization
+- Custom `app://` protocol rejects path traversal outside the renderer dir
+- SMTP passwords and OAuth tokens encrypted at rest via Electron `safeStorage` (`enc:v1:` prefix); startup pass re-encrypts any legacy plaintext rows
+- All shell / URL / mailto handoffs go through explicit sanitizers (`sanitizeEmail`, `sanitizePhone`, `isSafeUwpFamilyName`, `isSafeExternalUrl`, `buildMailtoUrl`)
+- Database migrations backed up to `userData/backups/` before every batch, with recoverable error messaging
+- Structured logging via `electron-log` — no `console.log` in the main process
+- 14 vitest tests cover the sanitizer helpers (URL scheme rejection, shell-metacharacter email rejection, phone / UWP normalization, mailto URL encoding)
 
 ---
 
 ## Privacy
 
-- No internet connection required
-- All data stored locally on your device
-- No analytics, tracking, or telemetry
-- No cloud sync or external API calls
-- No accounts or sign-ups
+- Runs locally; no cloud sync
+- No analytics
+- Sentry crash reporting is opt-in: activates **only** when `ENVOY_SENTRY_DSN` (main), `VITE_SENTRY_DSN` (renderer), or `SENTRY_DSN` (mobile) is set. Sentry `beforeSend` redacts anything matching `/password|token|secret|apiKey|api_key/i` before it leaves the device.
+- Auto-update: `electron-updater` fetches release metadata from your configured GitHub Releases repo — you can point this elsewhere or disable it.
 
 ---
 
