@@ -168,7 +168,7 @@ export default function Notes() {
           content,
           color,
           isPinned,
-          groupId: noteGroupId || null,
+          groupId: noteGroupId || undefined,
         });
         setNotes(notes.map((n) => (n.id === updated.id ? updated : n)));
         toast.success('Note saved', `"${updated.title}" has been updated`);

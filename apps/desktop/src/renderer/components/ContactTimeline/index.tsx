@@ -239,7 +239,7 @@ export default function ContactTimeline({ contact, onClose }: ContactTimelinePro
                               {event.description}
                             </p>
                           )}
-                          {event.details?.templateName && (
+                          {!!event.details?.templateName && (
                             <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
                               <FileText className="w-3 h-3" />
                               Template: {String(event.details.templateName)}
@@ -256,7 +256,7 @@ export default function ContactTimeline({ contact, onClose }: ContactTimelinePro
                       </div>
 
                       {/* Scheduled message details */}
-                      {event.type === 'scheduled' && event.details?.scheduledFor && (
+                      {event.type === 'scheduled' && event.details?.scheduledFor != null && (
                         <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
                           <div className="flex items-center gap-2 text-xs">
                             <Calendar className="w-3 h-3" />
@@ -264,7 +264,7 @@ export default function ContactTimeline({ contact, onClose }: ContactTimelinePro
                               Scheduled for:{' '}
                               {format(new Date(event.details.scheduledFor as string), 'PPp')}
                             </span>
-                            {event.details?.status && (
+                            {!!event.details?.status && (
                               <span
                                 className={`ml-2 px-1.5 py-0.5 rounded text-xs ${
                                   event.details.status === 'sent'
@@ -284,8 +284,7 @@ export default function ContactTimeline({ contact, onClose }: ContactTimelinePro
                       )}
 
                       {/* Attachments */}
-                      {event.details?.attachments &&
-                        Array.isArray(event.details.attachments) &&
+                      {Array.isArray(event.details?.attachments) &&
                         event.details.attachments.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
                             <div className="flex items-center gap-2 text-xs text-gray-500">

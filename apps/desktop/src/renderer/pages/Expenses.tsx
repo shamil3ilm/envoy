@@ -288,7 +288,7 @@ export default function Expenses() {
       filter.toDate = format(periodEnd, 'yyyy-MM-dd');
 
       const promises: Promise<any>[] = [
-        window.envoy.expenses.list(filter),
+        window.envoy.expenses.list(filter as Parameters<typeof window.envoy.expenses.list>[0]),
         window.envoy.expenses.summary({
           fromDate: filter.fromDate,
           toDate: filter.toDate,

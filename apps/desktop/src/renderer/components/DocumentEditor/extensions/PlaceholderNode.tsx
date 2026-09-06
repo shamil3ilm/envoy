@@ -62,6 +62,6 @@ export const PlaceholderNode = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(PlaceholderNodeView);
+    return ReactNodeViewRenderer(PlaceholderNodeView as never);
   },
 });

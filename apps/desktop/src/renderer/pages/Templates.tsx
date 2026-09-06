@@ -137,7 +137,7 @@ export default function Templates() {
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}
               >
-                {cat ? TEMPLATE_CATEGORIES[cat]?.label : 'All'}
+                {cat ? TEMPLATE_CATEGORIES[cat as keyof typeof TEMPLATE_CATEGORIES]?.label : 'All'}
               </button>
             ))}
           </div>
