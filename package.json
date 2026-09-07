@@ -20,7 +20,7 @@
     "verify": "turbo run typecheck test"
   },
   "devDependencies": {
-    "turbo": "^2.0.0"
+    "turbo": "^2.10.12"
   },
   "packageManager": "npm@10.0.0"
 }
