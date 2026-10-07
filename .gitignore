@@ -68,3 +68,8 @@ apps/desktop/build/certs/
 
 # Misc
 nul
+
+# Android build output and machine-specific SDK path (never commit)
+apps/mobile/android/app/.cxx/
+apps/mobile/android/build/
+apps/mobile/android/local.properties
